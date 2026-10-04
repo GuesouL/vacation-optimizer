@@ -1,0 +1,141 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
+
+import { api, errorMessage, FEDERAL_CALENDAR_ID } from "@/lib/api";
+import { loadPlan, savePlan } from "@/lib/storage";
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export default function Onboarding() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [pto, setPto] = useState("10");
+  const [workWeek, setWorkWeek] = useState([0, 1, 2, 3, 4]);
+  const [federal, setFederal] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Already set up in this browser? Go straight to the plan.
+  useEffect(() => {
+    if (loadPlan()) router.replace("/plan");
+  }, [router]);
+
+  function toggleDay(day: number) {
+    setWorkWeek((days) =>
+      days.includes(day) ? days.filter((d) => d !== day) : [...days, day].sort(),
+    );
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      // Three calls, in order: the person, their holidays, then a group of one.
+      const person = await api.POST("/people", {
+        body: { name: name.trim(), kind: "ADULT", pto_balance: Number(pto), work_week: workWeek },
+      });
+      if (!person.data) throw person.error;
+      const personId = person.data.id;
+
+      if (federal) {
+        const link = await api.POST("/people/{person_id}/calendars", {
+          params: { path: { person_id: personId } },
+          body: { calendar_id: FEDERAL_CALENDAR_ID },
+        });
+        if (link.error) throw link.error;
+      }
+
+      const group = await api.POST("/groups", {
+        body: { name: `${name.trim()}'s plan`, person_ids: [personId] },
+      });
+      if (!group.data) throw group.error;
+
+      savePlan({ personId, groupId: group.data.id });
+      router.push("/plan");
+    } catch (err) {
+      setError(errorMessage(err));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-md px-4 py-12">
+      <h1 className="text-3xl font-semibold tracking-tight">Vacation Optimizer</h1>
+      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+        Find the most days off for the fewest PTO days.
+      </p>
+
+      <form onSubmit={submit} className="mt-8 space-y-6">
+        <label className="block">
+          <span className="text-sm font-medium">Your first name</span>
+          <input
+            required
+            maxLength={100}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium">PTO days left this year</span>
+          <input
+            required
+            type="number"
+            min={0}
+            max={365}
+            value={pto}
+            onChange={(e) => setPto(e.target.value)}
+            className="mt-1 block w-32 rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </label>
+
+        <fieldset>
+          <legend className="text-sm font-medium">Days you work</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DAYS.map((label, day) => {
+              const on = workWeek.includes(day);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleDay(day)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    on
+                      ? "bg-teal-700 text-white"
+                      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={federal} onChange={(e) => setFederal(e.target.checked)} />
+          <span className="text-sm">I get the US federal holidays off</span>
+        </label>
+
+        {error && (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={saving || workWeek.length === 0}
+          className="w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+        >
+          {saving ? "Setting up…" : "Find my best breaks"}
+        </button>
+      </form>
+    </main>
+  );
+}

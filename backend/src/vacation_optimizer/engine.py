@@ -114,3 +114,17 @@ def find_windows(
     if not paid and not free:
         message = "No window fits everyone in this date range."
     return SearchResult(paid, free, message)
+
+
+def distinct_windows(windows: list[Window]) -> list[Window]:
+    """Keep each window only if it doesn't overlap a better-ranked one.
+
+    Fri Oct 9-Mon Oct 12 and Sat Oct 10-Tue Oct 13 are the same Columbus Day
+    break seen two ways. Walking the ranked list and skipping overlaps leaves
+    one card per real opportunity.
+    """
+    kept: list[Window] = []
+    for window in windows:
+        if all(window.end < k.start or window.start > k.end for k in kept):
+            kept.append(window)
+    return kept

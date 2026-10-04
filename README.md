@@ -5,7 +5,7 @@ kids' school breaks), ranked by days off per PTO day spent.
 
 ## Layout
 - `backend/` — Python 3.12 + FastAPI. The optimizer engine lives in `src/vacation_optimizer/`.
-- `frontend/` — Next.js + TypeScript (coming later).
+- `frontend/` — Next.js + TypeScript + Tailwind. Types for every API call are generated from the back end's OpenAPI schema.
 
 ## Run it
 You need PostgreSQL 16 running locally (on a Mac: `brew install postgresql@16 && brew services start postgresql@16`).
@@ -27,10 +27,24 @@ uv run uvicorn vacation_optimizer.api:app --reload   # API docs at http://127.0.
 Change the database with a migration, never by hand: edit `orm.py`, then
 `uv run alembic revision --autogenerate -m "what changed"`, read the generated file, and `uv run alembic upgrade head`.
 
+Then, in a second terminal, start the front end:
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:3000
+npm test           # date helpers, run in Pacific time on purpose
+```
+
+When you change the API, refresh the shared contract so the front end's types match:
+`cd backend && uv run python scripts/export_openapi.py && cd ../frontend && npm run gen:api`.
+CI fails if you forget.
+
 ## How a request flows
 `api.py` (HTTP, validation via `schemas.py`) → `orm.py` rows loaded from Postgres →
 `loader.py` converts them → `engine.py` ranks windows → JSON back out.
 
 ## Status
 - Phase 1 (optimizer engine): done.
-- Phase 2 (database + API): tables, first migration, CRUD endpoints, `GET /groups/{id}/windows`.
+- Phase 2 (database + API): done.
+- Phase 3 (solo UI): onboarding (name, PTO, work week), ranked suggestions with best-value / longest-trip sort, free long weekends, 12-month calendar.

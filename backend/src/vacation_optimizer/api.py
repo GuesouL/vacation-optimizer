@@ -1,16 +1,18 @@
 """FastAPI app: the HTTP layer over the database and the optimizer engine."""
 
+import os
 from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from . import orm
 from .db import get_session
-from .engine import SortOrder, find_windows
+from .engine import SortOrder, distinct_windows, find_windows
 from .holidays import federal_calendar
 from .loader import to_engine_person
 from .models import Window
@@ -31,6 +33,15 @@ from .schemas import (
 )
 
 app = FastAPI(title="Vacation Optimizer")
+
+# Browsers block a page on one address (localhost:3000) from calling an API on
+# another (localhost:8000) unless the API says that page is allowed. That's CORS.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 DB = Annotated[Session, Depends(get_session)]
 
 MAX_SEARCH_DAYS = 400  # about 13 months; keeps one search fast
@@ -138,6 +149,11 @@ def create_group(body: GroupIn, session: DB) -> GroupOut:
     return group_out(group)
 
 
+@app.get("/groups/{group_id}")
+def get_group(group_id: int, session: DB) -> GroupOut:
+    return group_out(get_or_404(session, orm.Group, group_id))
+
+
 def window_out(window: Window) -> WindowOut:
     return WindowOut(
         start=window.start,
@@ -158,6 +174,7 @@ def optimize(
     max_days: Annotated[int, Query(ge=2, le=31)] = 16,
     sort: SortOrder = "best_value",
     limit: Annotated[int, Query(ge=1, le=200)] = 25,
+    distinct: bool = True,
 ) -> SearchOut:
     """Rank the vacation windows everyone in the group can share."""
     if end < start:
@@ -191,6 +208,9 @@ def optimize(
         if names.count(person.name) > 1:
             person.name = f"{person.name} (#{member.person_id})"
     result = find_windows(people, start, end, min_days, max_days, sort)
+    if distinct:  # one suggestion per real break, not five overlapping versions of it
+        result.windows = distinct_windows(result.windows)
+        result.free_long_weekends = distinct_windows(result.free_long_weekends)
     return SearchOut(
         windows=[window_out(w) for w in result.windows[:limit]],
         free_long_weekends=[window_out(w) for w in result.free_long_weekends[:limit]],
