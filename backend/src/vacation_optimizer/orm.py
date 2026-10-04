@@ -15,9 +15,13 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
+    Index,
     SmallInteger,
     String,
     UniqueConstraint,
+    func,
+    literal_column,
+    text,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -91,9 +95,28 @@ class Calendar(Base):
     )
 
 
+def date_span(start, end):
+    """A Postgres `daterange` that includes both ends: '[]' means closed on both sides.
+
+    Written exactly like the index below. If the two ever differ (say '[)' here),
+    Postgres can't use the index for the dates and falls back to checking them row by row.
+    """
+    return func.daterange(start, end, literal_column("'[]'"))
+
+
 class CalendarEvent(Base):
     __tablename__ = "calendar_event"
-    __table_args__ = (CheckConstraint("end_date >= start_date", name="event_dates_in_order"),)
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="event_dates_in_order"),
+        # A GiST index answers "which events overlap these dates?" without reading
+        # every row. btree_gist lets plain calendar_id sit in the same index.
+        Index(
+            "ix_calendar_event_calendar_dates",
+            "calendar_id",
+            text("daterange(start_date, end_date, '[]')"),
+            postgresql_using="gist",
+        ),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     calendar_id: Mapped[int] = mapped_column(ForeignKey("calendar.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(200))

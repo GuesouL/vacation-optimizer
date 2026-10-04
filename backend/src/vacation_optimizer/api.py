@@ -14,7 +14,7 @@ from . import orm
 from .db import get_session
 from .engine import SortOrder, distinct_windows, find_windows
 from .holidays import federal_calendar
-from .loader import to_engine_person
+from .loader import events_in_range, to_engine_person
 from .models import Window
 from .schemas import (
     CalendarIn,
@@ -184,16 +184,15 @@ def optimize(
     if min_days > max_days:
         raise HTTPException(422, "min_days must be at most max_days")
 
-    # selectinload fetches every person's calendars, events and PTO in a few
-    # queries up front, instead of one query per person (the "N+1" problem).
+    # selectinload fetches every person's calendars and PTO in a few queries up
+    # front, instead of one query per person (the "N+1" problem). Events are
+    # loaded separately, filtered to the search dates by the database.
     group = session.scalars(
         select(orm.Group)
         .where(orm.Group.id == group_id)
         .options(
             selectinload(orm.Group.members).selectinload(orm.GroupMember.person).options(
-                selectinload(orm.Person.calendars)
-                .selectinload(orm.PersonCalendar.calendar)
-                .selectinload(orm.Calendar.events),
+                selectinload(orm.Person.calendars).selectinload(orm.PersonCalendar.calendar),
                 selectinload(orm.Person.pto_blocks),
             )
         )
@@ -201,7 +200,9 @@ def optimize(
     if group is None:
         raise HTTPException(404, f"Group {group_id} not found")
 
-    people = [to_engine_person(m.person, start, end) for m in group.members]
+    calendar_ids = {link.calendar_id for m in group.members for link in m.person.calendars}
+    events = events_in_range(session, calendar_ids, start, end)
+    people = [to_engine_person(m.person, start, end, events) for m in group.members]
     # PTO costs are keyed by name, so two people both named "Sam" get their ids added.
     names = [p.name for p in people]
     for person, member in zip(people, group.members):

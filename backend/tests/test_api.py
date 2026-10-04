@@ -6,15 +6,17 @@ Needs the test database migrated first: see the README.
 """
 
 import os
+from datetime import date
 from itertools import pairwise
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from vacation_optimizer.api import app
 from vacation_optimizer.db import get_session
+from vacation_optimizer.loader import events_in_range, overlapping_events
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://vacation:vacation@localhost:5432/vacation_test"
@@ -208,3 +210,38 @@ def test_distinct_hides_overlapping_versions_of_the_same_break(client):
     assert find(distinct, "2026-10-10", "2026-10-13") is None
     spans = sorted((w["start"], w["end"]) for w in distinct)
     assert all(prev_end < start for (_, prev_end), (start, _) in pairwise(spans))
+
+
+def test_only_events_in_the_search_range_are_loaded(client, db_engine):
+    """An event that straddles the start date counts; one from another year doesn't."""
+    calendar = client.post("/calendars", json={"name": "School", "kind": "SCHOOL"}).json()["id"]
+    for title, start, end in [
+        ("Winter break", "2026-12-21", "2027-01-01"),  # straddles the Jan 1 search start
+        ("Old break", "2020-03-02", "2020-03-06"),  # years before the search
+        ("Spring break", "2027-04-19", "2027-04-23"),  # inside
+    ]:
+        client.post(f"/calendars/{calendar}/events", json={
+            "title": title, "start_date": start, "end_date": end, "effect": "DAY_OFF",
+        })
+    session = app.dependency_overrides[get_session]()
+    found = events_in_range(session, {calendar}, date(2027, 1, 1), date(2027, 6, 30))
+    assert [e.title for e in found[calendar]] == ["Winter break", "Spring break"]
+
+
+def test_overlap_query_can_use_the_gist_index(client):
+    """Postgres only uses an expression index when the query's expression matches it
+    exactly. Hide every other route to the rows, then check the plan."""
+    session = app.dependency_overrides[get_session]()
+    session.execute(text("DROP INDEX ix_calendar_event_calendar_id"))  # rolled back after the test
+    session.execute(text("SET LOCAL enable_seqscan = off"))
+    statement = overlapping_events({1, 2}, date(2027, 1, 1), date(2027, 6, 30))
+    # Same SQL and the same bound parameters the app sends, with EXPLAIN in front.
+    compiled = statement.compile(
+        dialect=session.bind.dialect, compile_kwargs={"render_postcompile": True}
+    )
+    plan = session.connection().exec_driver_sql(f"EXPLAIN {compiled}", compiled.params).scalars().all()
+    assert any("ix_calendar_event_calendar_dates" in line for line in plan), plan
+    # The index must check the dates too, not just calendar_id. If the query's
+    # range expression drifts from the index's, the dates become a slow Filter.
+    index_cond = next(line for line in plan if "Index Cond" in line)
+    assert "&&" in index_cond, plan
