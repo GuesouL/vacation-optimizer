@@ -6,6 +6,7 @@ Needs the test database migrated first: see the README.
 """
 
 import os
+from itertools import pairwise
 
 import pytest
 from fastapi.testclient import TestClient
@@ -112,7 +113,7 @@ def test_excluded_holidays_and_committed_pto(client):
     client.post(f"/people/{bob}/pto-blocks", json={
         "start_date": "2026-12-28", "end_date": "2026-12-31", "status": "PROPOSED",
     })
-    result = windows(client, group(client, alice, bob), limit=200)
+    result = windows(client, group(client, alice, bob), limit=200, distinct=False)
 
     assert find(result["windows"], "2026-10-10", "2026-10-12")["pto_cost"] == {"Alice": 0, "Bob": 1}
     # Starts on Christmas, not Dec 26: Dec 25 is free for both, so the engine grows the window.
@@ -176,3 +177,34 @@ def test_bad_event_dates_are_rejected(client):
         "title": "Backwards", "start_date": "2026-05-02", "end_date": "2026-05-01", "effect": "BUSY",
     })
     assert response.status_code == 422
+
+
+def test_get_group(client):
+    group_id = group(client, adult(client, "Alice", 10))
+    response = client.get(f"/groups/{group_id}")
+    assert response.status_code == 200
+    assert response.json()["people"][0]["name"] == "Alice"
+    assert client.get("/groups/999999").status_code == 404
+
+
+def test_cors_allows_the_front_end(client):
+    response = client.options("/health", headers={
+        "Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET",
+    })
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    other = client.options("/health", headers={
+        "Origin": "https://evil.example", "Access-Control-Request-Method": "GET",
+    })
+    assert "access-control-allow-origin" not in other.headers
+
+
+def test_distinct_hides_overlapping_versions_of_the_same_break(client):
+    group_id = group(client, adult(client, "Solo", 1))
+    every = windows(client, group_id, limit=200, distinct=False)["windows"]
+    distinct = windows(client, group_id, limit=200)["windows"]
+
+    assert find(every, "2026-10-10", "2026-10-13")  # same Columbus break, shifted a day
+    assert find(distinct, "2026-10-09", "2026-10-12")
+    assert find(distinct, "2026-10-10", "2026-10-13") is None
+    spans = sorted((w["start"], w["end"]) for w in distinct)
+    assert all(prev_end < start for (_, prev_end), (start, _) in pairwise(spans))

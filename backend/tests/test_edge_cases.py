@@ -8,7 +8,7 @@ from datetime import date
 
 from conftest import YEAR_END, YEAR_START
 
-from vacation_optimizer.engine import find_windows, timeline
+from vacation_optimizer.engine import distinct_windows, find_windows, timeline
 from vacation_optimizer.holidays import federal_calendar
 from vacation_optimizer.models import (
     Calendar,
@@ -17,6 +17,7 @@ from vacation_optimizer.models import (
     Effect,
     Person,
     PTOBlock,
+    Window,
 )
 
 
@@ -174,3 +175,10 @@ def test_12_duplicate_dates(federal, make_adult):
 
     thanksgiving = find(result.windows, date(2026, 11, 26), date(2026, 11, 29))
     assert thanksgiving.bottleneck_cost == 1  # counted once, so still 1 PTO, not 0 or -1
+
+
+def test_distinct_windows_keeps_the_better_ranked_overlap():
+    first = Window(date(2026, 10, 9), date(2026, 10, 12), {"A": 1})
+    overlap = Window(date(2026, 10, 10), date(2026, 10, 13), {"A": 1})
+    later = Window(date(2026, 11, 26), date(2026, 11, 29), {"A": 1})
+    assert distinct_windows([first, overlap, later]) == [first, later]
