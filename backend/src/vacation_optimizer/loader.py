@@ -4,13 +4,48 @@ This is the only place that knows about both worlds, like an adapter harness
 between a new part and an old connector.
 """
 
+from collections import defaultdict
 from datetime import date
+
+from sqlalchemy import Select, select
+from sqlalchemy.orm import Session
 
 from . import models, orm
 from .holidays import federal_calendar
 
 
-def to_engine_person(row: orm.Person, start: date, end: date) -> models.Person:
+def overlapping_events(calendar_ids: set[int], start: date, end: date) -> Select:
+    event = orm.CalendarEvent
+    return (
+        select(event)
+        .where(event.calendar_id.in_(calendar_ids))
+        .where(orm.date_span(event.start_date, event.end_date).op("&&")(orm.date_span(start, end)))
+        .order_by(event.start_date)
+    )
+
+
+def events_in_range(
+    session: Session, calendar_ids: set[int], start: date, end: date
+) -> dict[int, list[orm.CalendarEvent]]:
+    """Only the events that touch the search dates, grouped by calendar.
+
+    `&&` is Postgres's "ranges overlap" operator. The GiST index on
+    (calendar_id, daterange) answers it without reading every year of every
+    calendar, and Python only ever receives the rows it needs.
+    """
+    rows = session.scalars(overlapping_events(calendar_ids, start, end))
+    grouped: dict[int, list[orm.CalendarEvent]] = defaultdict(list)
+    for row in rows:
+        grouped[row.calendar_id].append(row)
+    return grouped
+
+
+def to_engine_person(
+    row: orm.Person,
+    start: date,
+    end: date,
+    events: dict[int, list[orm.CalendarEvent]],
+) -> models.Person:
     calendars = []
     excluded: set[str] = set()
     for link in row.calendars:
@@ -23,7 +58,7 @@ def to_engine_person(row: orm.Person, start: date, end: date) -> models.Person:
         else:
             calendars.append(models.Calendar(link.calendar.name, [
                 models.CalendarEvent(e.start_date, e.end_date, e.effect, e.title)
-                for e in link.calendar.events
+                for e in events.get(link.calendar_id, [])
             ]))
 
     return models.Person(
