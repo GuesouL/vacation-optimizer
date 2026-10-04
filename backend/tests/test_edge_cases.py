@@ -7,6 +7,7 @@ searching the 2026-27 school year (Sep 10, 2026 - Jun 28, 2027).
 from datetime import date
 
 from conftest import YEAR_END, YEAR_START
+
 from vacation_optimizer.engine import find_windows, timeline
 from vacation_optimizer.holidays import federal_calendar
 from vacation_optimizer.models import (
