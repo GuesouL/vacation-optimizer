@@ -132,7 +132,7 @@ def test_08_busy_beats_holiday(federal, make_adult):
 def test_09_already_booked(make_adult):
     alice = make_adult("Alice", 10, committed_pto=[PTOBlock(date(2026, 12, 28), date(2026, 12, 31))])
 
-    assert alice.remaining_pto == 6
+    assert alice.remaining_pto(YEAR_START) == 6
     assert cost_of(alice, date(2026, 12, 26), date(2027, 1, 3)) == 0
     unbooked = make_adult("Alice", 10)
     assert cost_of(unbooked, date(2026, 12, 26), date(2027, 1, 3)) == 4
@@ -182,3 +182,32 @@ def test_distinct_windows_keeps_the_better_ranked_overlap():
     overlap = Window(date(2026, 10, 10), date(2026, 10, 13), {"A": 1})
     later = Window(date(2026, 11, 26), date(2026, 11, 29), {"A": 1})
     assert distinct_windows([first, overlap, later]) == [first, later]
+
+
+def test_last_years_pto_does_not_come_off_this_years_balance(make_adult):
+    """Booked PTO from a past year was already spent from a past balance."""
+    old_trip = PTOBlock(date(2025, 12, 29), date(2025, 12, 31))  # Mon-Wed, 3 workdays
+    alice = make_adult("Alice", 4, committed_pto=[old_trip])
+    result = find_windows([alice], YEAR_START, YEAR_END)
+
+    # Thanksgiving week: 4 PTO days (Mon-Wed and Fri) turn into 9 days off.
+    assert find(result.windows, date(2026, 11, 21), date(2026, 11, 29)).pto_cost == {"Alice": 4}
+
+
+def test_next_years_pto_comes_off_next_years_balance(make_adult):
+    """The balance is 'PTO left this year'. A trip booked for next January uses next year's days."""
+    next_year = PTOBlock(date(2027, 1, 4), date(2027, 1, 8))  # Mon-Fri, 5 workdays
+    alice = make_adult("Alice", 4, committed_pto=[next_year])
+    result = find_windows([alice], YEAR_START, YEAR_END)
+
+    assert find(result.windows, date(2026, 11, 21), date(2026, 11, 29)).pto_cost == {"Alice": 4}
+
+
+def test_holidays_inside_booked_pto_are_not_charged(make_adult):
+    """HR doesn't charge PTO for Thanksgiving, so booking Mon-Fri of that week costs 4, not 5."""
+    thanksgiving_week = PTOBlock(date(2026, 11, 23), date(2026, 11, 27))
+    alice = make_adult("Alice", 5, committed_pto=[thanksgiving_week])
+    result = find_windows([alice], YEAR_START, YEAR_END)
+
+    # 5 - 4 = 1 day left, enough for the Friday before Columbus Day.
+    assert find(result.windows, date(2026, 10, 9), date(2026, 10, 12)).pto_cost == {"Alice": 1}

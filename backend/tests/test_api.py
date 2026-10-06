@@ -245,3 +245,14 @@ def test_overlap_query_can_use_the_gist_index(client):
     # range expression drifts from the index's, the dates become a slow Filter.
     index_cond = next(line for line in plan if "Index Cond" in line)
     assert "&&" in index_cond, plan
+
+
+def test_booked_trip_after_the_search_still_skips_its_holiday(client):
+    """Searching only October: the Thanksgiving-week trip still costs 4 PTO, not 5,
+    so the API must load holidays past the search end, through Dec 31."""
+    alice = adult(client, "Alice", 5)
+    client.post(f"/people/{alice}/pto-blocks", json={
+        "start_date": "2026-11-23", "end_date": "2026-11-27", "status": "COMMITTED",
+    })
+    result = windows(client, group(client, alice), start="2026-10-01", end="2026-10-31")
+    assert find(result["windows"], "2026-10-09", "2026-10-12")["pto_cost"] == {"Alice": 1}

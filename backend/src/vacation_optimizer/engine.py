@@ -60,6 +60,8 @@ def find_windows(
     total_days = (end - start).days + 1
     work = {}
     busy = {}
+    # Worked out once per search, not once per window: it doesn't change as the window slides.
+    remaining = {p.name: p.remaining_pto(start) for p in people}
     for person in people:
         statuses = timeline(person, start, end)
         work[person.name] = _prefix_sums(statuses, DayStatus.WORK)
@@ -72,8 +74,8 @@ def find_windows(
             if busy[person.name][j] - busy[person.name][i]:
                 return None
             cost = work[person.name][j] - work[person.name][i]
-            remaining = person.remaining_pto
-            if cost > (0 if remaining is None else remaining):
+            left = remaining[person.name]
+            if cost > (0 if left is None else left):
                 return None
             result[person.name] = cost
         return result
