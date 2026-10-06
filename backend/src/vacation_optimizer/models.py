@@ -66,12 +66,36 @@ class Person:
     excluded_events: set[str] = field(default_factory=set)
     committed_pto: list[PTOBlock] = field(default_factory=list)
 
-    @property
-    def remaining_pto(self) -> int | None:
+    def days_off(self) -> set[date]:
+        """Holidays and breaks this person gets, minus the ones their job skips."""
+        return {
+            day
+            for calendar in self.calendars
+            for event in calendar.events
+            if event.effect is Effect.DAY_OFF and event.title not in self.excluded_events
+            for day in event.days()
+        }
+
+    def remaining_pto(self, as_of: date) -> int | None:
+        """PTO left for the rest of `as_of`'s year, after trips already booked.
+
+        `pto_balance` is "days left this year", so only booked days from `as_of`
+        through Dec 31 come off it: earlier trips were already spent from it, and
+        next year's trips come out of next year's days. A holiday or weekend
+        inside a booked trip costs nothing, same as on a real timesheet.
+        """
         if self.pto_balance is None:
             return None
-        booked = {day for block in self.committed_pto for day in block.days()}
-        return self.pto_balance - sum(1 for day in booked if day.weekday() in self.work_week)
+        year_end = date(as_of.year, 12, 31)
+        holidays = self.days_off()
+        booked = {
+            day
+            for block in self.committed_pto
+            for day in block.days()
+            if as_of <= day <= year_end
+        }
+        charged = [d for d in booked if d.weekday() in self.work_week and d not in holidays]
+        return self.pto_balance - len(charged)
 
 
 @dataclass(frozen=True)

@@ -201,8 +201,11 @@ def optimize(
         raise HTTPException(404, f"Group {group_id} not found")
 
     calendar_ids = {link.calendar_id for m in group.members for link in m.person.calendars}
-    events = events_in_range(session, calendar_ids, start, end)
-    people = [to_engine_person(m.person, start, end, events) for m in group.members]
+    # Load holidays through Dec 31 even when the search ends sooner: a booked
+    # trip in December that covers Christmas mustn't be charged for Christmas.
+    load_end = max(end, date(start.year, 12, 31))
+    events = events_in_range(session, calendar_ids, start, load_end)
+    people = [to_engine_person(m.person, start, load_end, events) for m in group.members]
     # PTO costs are keyed by name, so two people both named "Sam" get their ids added.
     names = [p.name for p in people]
     for person, member in zip(people, group.members):
