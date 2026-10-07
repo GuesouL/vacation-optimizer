@@ -4,12 +4,13 @@ FastAPI uses these to validate input, reject bad requests with a clear 422
 error, and generate the OpenAPI schema the TypeScript front end will be built from.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .access import Role
 from .models import Effect
-from .orm import CalendarKind, PersonKind, PTOStatus
+from .orm import CalendarKind, LinkKind, PersonKind, PTOStatus
 
 
 class ORMModel(BaseModel):
@@ -106,15 +107,28 @@ class GroupIn(BaseModel):
     person_ids: list[int] = Field(min_length=1)
 
 
+class MemberOut(BaseModel):
+    """A person in a group. Balance and work week are None unless they're yours."""
+
+    id: int
+    name: str
+    kind: PersonKind
+    mine: bool
+    pto_balance: int | None
+    work_week: list[int] | None
+
+
 class GroupOut(BaseModel):
     id: int
     name: str
-    people: list[PersonOut]
+    role: Role
+    people: list[MemberOut]
 
 
 class GroupSummary(BaseModel):
     id: int
     name: str
+    role: Role
 
 
 class MeOut(BaseModel):
@@ -137,3 +151,34 @@ class SearchOut(BaseModel):
     windows: list[WindowOut]
     free_long_weekends: list[WindowOut]
     message: str | None
+
+
+class LinkIn(BaseModel):
+    kind: LinkKind
+
+
+class LinkOut(BaseModel):
+    id: int
+    kind: LinkKind
+    expires_at: datetime
+    revoked: bool
+
+
+class NewLinkOut(LinkOut):
+    token: str  # shown once, right after creation; the server only keeps its hash
+
+
+class InvitePreview(BaseModel):
+    group_name: str
+    invited_by: str  # first name only
+    kind: LinkKind
+
+
+class AcceptIn(BaseModel):
+    person_ids: list[int] = Field(min_length=1)
+
+
+class SharedViewOut(BaseModel):
+    group_name: str
+    people: list[str]  # first names only
+    search: SearchOut

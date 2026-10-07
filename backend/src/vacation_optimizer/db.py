@@ -2,7 +2,9 @@
 
 import os
 from collections.abc import Iterator
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -19,3 +21,6 @@ def get_session() -> Iterator[Session]:
     """FastAPI dependency: opens a session for one request and always closes it."""
     with SessionLocal() as session:
         yield session
+
+
+DB = Annotated[Session, Depends(get_session)]
