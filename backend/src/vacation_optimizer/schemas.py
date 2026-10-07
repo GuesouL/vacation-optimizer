@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .access import Role
 from .models import Effect
+from . import orm
 from .orm import CalendarKind, LinkKind, PersonKind, PTOStatus
 
 
@@ -28,12 +29,28 @@ class DateRange(BaseModel):
         return self
 
 
+class RenewsOn(BaseModel):
+    month: int = Field(ge=1, le=12)
+    day: int = Field(ge=1, le=31)
+
+    @model_validator(mode="after")
+    def real_day(self):
+        try:
+            date(2028, self.month, self.day)  # a leap year, so Feb 29 is allowed
+        except ValueError:
+            raise ValueError(f"{self.month}/{self.day} isn't a real date") from None
+        return self
+
+
 class PersonIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     kind: PersonKind
     pto_balance: int | None = Field(default=None, ge=0)
     work_week: list[int] = Field(default=[0, 1, 2, 3, 4], description="Mon=0 ... Sun=6")
     is_self: bool = Field(default=False, description="This person is the signed-in user")
+    pto_allowance: int | None = Field(default=None, ge=0, le=365, description="PTO days granted each renewal")
+    pto_renews_on: RenewsOn | None = Field(default=None, description="When PTO renews; omitted = Jan 1")
+    pto_carryover_max: int | None = Field(default=None, ge=0, le=365, description="Unused days that roll over")
 
     @model_validator(mode="after")
     def check_person(self):
@@ -45,7 +62,17 @@ class PersonIn(BaseModel):
             raise ValueError("children don't have a pto_balance")
         if self.is_self and self.kind is not PersonKind.ADULT:
             raise ValueError("your own profile must be an adult")
+        renewal_fields = (self.pto_allowance, self.pto_renews_on, self.pto_carryover_max)
+        if self.pto_balance is None and any(f is not None for f in renewal_fields):
+            raise ValueError("PTO renewal settings need a pto_balance")
         return self
+
+    def columns(self) -> dict:
+        """The fields as database columns: the renewal date splits into month and day."""
+        fields = self.model_dump(exclude={"is_self", "pto_renews_on"})
+        if self.pto_renews_on:
+            fields |= {"pto_renewal_month": self.pto_renews_on.month, "pto_renewal_day": self.pto_renews_on.day}
+        return fields
 
 
 class PersonOut(ORMModel):
@@ -54,6 +81,19 @@ class PersonOut(ORMModel):
     kind: PersonKind
     pto_balance: int | None
     work_week: list[int]
+    pto_allowance: int | None
+    pto_renews_on: RenewsOn | None
+    pto_carryover_max: int | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def join_renewal(cls, data):
+        if isinstance(data, orm.Person):  # a database row: rebuild the renewal pair
+            month, day = data.pto_renewal_month, data.pto_renewal_day
+            data = {c: getattr(data, c) for c in ("id", "name", "kind", "pto_balance", "work_week",
+                                                  "pto_allowance", "pto_carryover_max")}
+            data["pto_renews_on"] = {"month": month, "day": day} if month else None
+        return data
 
 
 class CalendarIn(BaseModel):

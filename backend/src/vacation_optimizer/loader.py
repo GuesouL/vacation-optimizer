@@ -61,9 +61,13 @@ def to_engine_person(
                 for e in events.get(link.calendar_id, [])
             ]))
 
+    renews_on = (row.pto_renewal_month, row.pto_renewal_day) if row.pto_renewal_month else (1, 1)
     return models.Person(
         name=row.name,
         pto_balance=row.pto_balance,
+        pto_allowance=row.pto_allowance,
+        pto_renews_on=renews_on,
+        pto_carryover_max=row.pto_carryover_max or 0,
         work_week=frozenset(row.work_week),
         calendars=calendars,
         excluded_events=excluded,

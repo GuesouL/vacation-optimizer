@@ -73,11 +73,23 @@ class Person(Base):
     __tablename__ = "person"
     __table_args__ = (
         CheckConstraint("pto_balance IS NULL OR pto_balance >= 0", name="pto_not_negative"),
+        CheckConstraint("pto_allowance IS NULL OR pto_allowance >= 0", name="allowance_not_negative"),
+        CheckConstraint("pto_carryover_max IS NULL OR pto_carryover_max >= 0", name="carryover_not_negative"),
+        # Month and day of the renewal come as a pair, or not at all (NULL = Jan 1).
+        CheckConstraint(
+            "(pto_renewal_month IS NULL) = (pto_renewal_day IS NULL)", name="renewal_month_and_day"
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     kind: Mapped[PersonKind] = mapped_column(SAEnum(PersonKind, name="person_kind"))
     pto_balance: Mapped[int | None]  # NULL for kids
+    # PTO renewal (all optional). Month/day, not a full date, because it repeats
+    # every year; a stored "next renewal" date would go stale the day it passed.
+    pto_allowance: Mapped[int | None]  # days granted at each renewal
+    pto_renewal_month: Mapped[int | None] = mapped_column(SmallInteger)
+    pto_renewal_day: Mapped[int | None] = mapped_column(SmallInteger)
+    pto_carryover_max: Mapped[int | None]  # NULL or 0 = use it or lose it
     # Weekdays they work, Mon=0 ... Sun=6. A nurse working Wed-Sun is {2,3,4,5,6}.
     work_week: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger), default=lambda: [0, 1, 2, 3, 4])
     # Who can edit this person: the account that added them (a parent adding a

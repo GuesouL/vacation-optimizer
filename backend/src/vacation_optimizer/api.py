@@ -108,8 +108,7 @@ def me(account: CurrentAccount, session: DB) -> MeOut:
 
 @app.post("/people", status_code=201)
 def create_person(body: PersonIn, account: CurrentAccount, session: DB) -> PersonOut:
-    fields = body.model_dump(exclude={"is_self"})
-    person = orm.Person(**fields, managed_by_account_id=account.id)
+    person = orm.Person(**body.columns(), managed_by_account_id=account.id)
     if body.is_self:
         already = session.scalars(
             select(orm.Person.id).where(orm.Person.linked_account_id == account.id)

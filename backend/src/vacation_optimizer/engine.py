@@ -10,6 +10,7 @@ Prefix sums make step 3 one subtraction per window instead of a day-by-day
 recount, like reading two odometer readings instead of counting every mile.
 """
 
+from dataclasses import dataclass
 from datetime import date, timedelta
 from itertools import accumulate
 from typing import Literal
@@ -44,6 +45,69 @@ def timeline(person: Person, start: date, end: date) -> list[DayStatus]:
     return statuses
 
 
+@dataclass
+class PTOYear:
+    """One stretch between renewals, as day indexes [first, stop) into the search."""
+
+    first: int
+    stop: int
+    budget: int  # PTO available here if no other new trip is taken
+    fresh: int  # what a renewal brings before carryover: allowance minus booked days
+
+
+def pto_years(person: Person, start: date, end: date) -> list[PTOYear] | None:
+    """Split the search at each renewal date. None means the person can't take PTO (a kid).
+
+    Like a service interval: each period starts with a fresh allowance, plus
+    whatever carryover the employer lets roll in from the last one.
+    """
+    remaining = person.remaining_pto(start)
+    total_days = (end - start).days + 1
+    if remaining is None:
+        return None
+    if person.pto_allowance is None:
+        # No yearly number: one balance for the whole search (the old behavior).
+        return [PTOYear(0, total_days, remaining, remaining)]
+
+    years = []
+    first, budget = start, remaining
+    while first <= end:
+        renewal = person.next_renewal(first)
+        last = min(end, renewal - timedelta(days=1))
+        if years:  # a renewal: fresh allowance minus trips already booked, plus carryover
+            fresh = person.pto_allowance - person.charged_days(first, renewal - timedelta(days=1))
+            budget = fresh + min(person.pto_carryover_max, max(0, years[-1].budget))
+        else:
+            fresh = budget
+        years.append(PTOYear((first - start).days, (last - start).days + 1, budget, fresh))
+        first = renewal
+    return years
+
+
+def _affordable(years: list[PTOYear] | None, work: list[int], i: int, j: int, carry_max: int) -> int | None:
+    """Total PTO for days i..j-1 if every PTO year it touches can pay its part, else None."""
+    if years is None:  # kids: only free days work
+        return 0 if work[j] == work[i] else None
+    total = 0
+    spent_before: int | None = None  # this trip's share in the previous PTO year
+    for k, year in enumerate(years):
+        lo, hi = max(i, year.first), min(j, year.stop)
+        if lo >= hi:
+            spent_before = None
+            continue
+        cost = work[hi] - work[lo]
+        budget = year.budget
+        if spent_before is not None:
+            # The trip's first half also shrinks what carries over into this year.
+            leftover = years[k - 1].budget - spent_before
+            budget = year.fresh + min(carry_max, max(0, leftover))
+        if cost > budget:
+            return None
+        total += cost
+        spent_before = cost
+    return total
+
+
 def _prefix_sums(statuses: list[DayStatus], status: DayStatus) -> list[int]:
     """sums[i] = how many of the first i days have `status`."""
     return [0, *accumulate(1 if s is status else 0 for s in statuses)]
@@ -61,7 +125,7 @@ def find_windows(
     work = {}
     busy = {}
     # Worked out once per search, not once per window: it doesn't change as the window slides.
-    remaining = {p.name: p.remaining_pto(start) for p in people}
+    budgets = {p.name: pto_years(p, start, end) for p in people}
     for person in people:
         statuses = timeline(person, start, end)
         work[person.name] = _prefix_sums(statuses, DayStatus.WORK)
@@ -73,9 +137,8 @@ def find_windows(
         for person in people:
             if busy[person.name][j] - busy[person.name][i]:
                 return None
-            cost = work[person.name][j] - work[person.name][i]
-            left = remaining[person.name]
-            if cost > (0 if left is None else left):
+            cost = _affordable(budgets[person.name], work[person.name], i, j, person.pto_carryover_max)
+            if cost is None:
                 return None
             result[person.name] = cost
         return result
