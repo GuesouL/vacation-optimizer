@@ -7,13 +7,14 @@ optimizer stays testable without a database.
 Every date column is `Date` (Postgres `date`), never a timestamp.
 """
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 
 from sqlalchemy import (
     ARRAY,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     SmallInteger,
@@ -52,6 +53,11 @@ class PTOStatus(Enum):
     COMMITTED = "COMMITTED"
 
 
+class LinkKind(Enum):
+    INVITE = "INVITE"  # join the group (needs an account)
+    VIEW = "VIEW"  # read-only: first names and dates, no account needed
+
+
 class Account(Base):
     """A login. Created on someone's first signed-in request (see auth.py)."""
 
@@ -67,11 +73,23 @@ class Person(Base):
     __tablename__ = "person"
     __table_args__ = (
         CheckConstraint("pto_balance IS NULL OR pto_balance >= 0", name="pto_not_negative"),
+        CheckConstraint("pto_allowance IS NULL OR pto_allowance >= 0", name="allowance_not_negative"),
+        CheckConstraint("pto_carryover_max IS NULL OR pto_carryover_max >= 0", name="carryover_not_negative"),
+        # Month and day of the renewal come as a pair, or not at all (NULL = Jan 1).
+        CheckConstraint(
+            "(pto_renewal_month IS NULL) = (pto_renewal_day IS NULL)", name="renewal_month_and_day"
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     kind: Mapped[PersonKind] = mapped_column(SAEnum(PersonKind, name="person_kind"))
     pto_balance: Mapped[int | None]  # NULL for kids
+    # PTO renewal (all optional). Month/day, not a full date, because it repeats
+    # every year; a stored "next renewal" date would go stale the day it passed.
+    pto_allowance: Mapped[int | None]  # days granted at each renewal
+    pto_renewal_month: Mapped[int | None] = mapped_column(SmallInteger)
+    pto_renewal_day: Mapped[int | None] = mapped_column(SmallInteger)
+    pto_carryover_max: Mapped[int | None]  # NULL or 0 = use it or lose it
     # Weekdays they work, Mon=0 ... Sun=6. A nurse working Wed-Sun is {2,3,4,5,6}.
     work_week: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger), default=lambda: [0, 1, 2, 3, 4])
     # Who can edit this person: the account that added them (a parent adding a
@@ -170,3 +188,21 @@ class GroupMember(Base):
     person_id: Mapped[int] = mapped_column(ForeignKey("person.id", ondelete="CASCADE"))
 
     person: Mapped[Person] = relationship()
+
+
+class ShareLink(Base):
+    """A secret link to a group. Only a hash of the token is stored, the same way
+    passwords are: a leaked database backup can't be turned back into working links."""
+
+    __tablename__ = "share_link"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("trip_group.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[LinkKind] = mapped_column(SAEnum(LinkKind, name="link_kind"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256, hex
+    created_by_account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
+    # Expiry is a moment in time, not a calendar day, so this one column is a
+    # timestamp with a time zone. Every planning date stays a plain `date`.
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    group: Mapped[Group] = relationship()

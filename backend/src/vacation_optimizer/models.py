@@ -6,6 +6,7 @@ takes people and calendars in and gives ranked windows back. The database
 Every date is a plain `date`, never a timestamp, so time zones can't shift it.
 """
 
+import calendar
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
@@ -65,6 +66,32 @@ class Person:
     # Event titles this person doesn't get, e.g. {"Columbus Day"} if their job skips it.
     excluded_events: set[str] = field(default_factory=set)
     committed_pto: list[PTOBlock] = field(default_factory=list)
+    # PTO renewal. Without an allowance, `pto_balance` covers the whole search, as before.
+    pto_allowance: int | None = None  # days granted each time PTO renews
+    pto_renews_on: tuple[int, int] = (1, 1)  # (month, day): Jan 1, or a work anniversary
+    pto_carryover_max: int = 0  # unused days that roll over; 0 = use it or lose it
+
+    def renewal_in(self, year: int) -> date:
+        month, day = self.pto_renews_on
+        # Feb 29 renewals land on Feb 28 in non-leap years.
+        return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+    def next_renewal(self, after: date) -> date:
+        """The first renewal strictly after `after`."""
+        this_year = self.renewal_in(after.year)
+        return this_year if this_year > after else self.renewal_in(after.year + 1)
+
+    def charged_days(self, first: date, last: date) -> int:
+        """Booked PTO between two dates (inclusive) that actually costs PTO: workdays
+        that aren't already holidays, same as on a real timesheet."""
+        holidays = self.days_off()
+        booked = {
+            day
+            for block in self.committed_pto
+            for day in block.days()
+            if first <= day <= last
+        }
+        return sum(1 for d in booked if d.weekday() in self.work_week and d not in holidays)
 
     def days_off(self) -> set[date]:
         """Holidays and breaks this person gets, minus the ones their job skips."""
@@ -77,25 +104,16 @@ class Person:
         }
 
     def remaining_pto(self, as_of: date) -> int | None:
-        """PTO left for the rest of `as_of`'s year, after trips already booked.
+        """PTO left until the next renewal, after trips already booked.
 
-        `pto_balance` is "days left this year", so only booked days from `as_of`
-        through Dec 31 come off it: earlier trips were already spent from it, and
-        next year's trips come out of next year's days. A holiday or weekend
-        inside a booked trip costs nothing, same as on a real timesheet.
+        `pto_balance` is "days left this PTO year", so only booked days from `as_of`
+        up to the renewal come off it: earlier trips were already spent from it, and
+        trips after the renewal come out of the next year's days.
         """
         if self.pto_balance is None:
             return None
-        year_end = date(as_of.year, 12, 31)
-        holidays = self.days_off()
-        booked = {
-            day
-            for block in self.committed_pto
-            for day in block.days()
-            if as_of <= day <= year_end
-        }
-        charged = [d for d in booked if d.weekday() in self.work_week and d not in holidays]
-        return self.pto_balance - len(charged)
+        last_day = self.next_renewal(as_of) - timedelta(days=1)
+        return self.pto_balance - self.charged_days(as_of, last_day)
 
 
 @dataclass(frozen=True)

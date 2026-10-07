@@ -211,3 +211,72 @@ def test_holidays_inside_booked_pto_are_not_charged(make_adult):
 
     # 5 - 4 = 1 day left, enough for the Friday before Columbus Day.
     assert find(result.windows, date(2026, 10, 9), date(2026, 10, 12)).pto_cost == {"Alice": 1}
+
+
+# --- PTO renewal (Phase 4) -----------------------------------------------------
+# Thanksgiving week 2026: 4 PTO (Mon-Wed + Fri) turns Sat Nov 21-Sun Nov 29 into 9 days.
+# Presidents' Day week 2027: Tue Feb 16-Fri Feb 19 is 4 PTO for Sat Feb 13-Sun Feb 21.
+
+
+def test_after_renewal_trips_use_next_years_allowance(make_adult):
+    """2 days left now, but 20 arrive on Jan 1: February can afford a 4-day trip."""
+    alice = make_adult("Alice", 2, pto_allowance=20)
+    result = find_windows([alice], YEAR_START, YEAR_END, sort="longest", min_days=9, max_days=9)
+
+    assert find(result.windows, date(2027, 2, 13), date(2027, 2, 21)).pto_cost == {"Alice": 4}
+    assert find(result.windows, date(2026, 11, 21), date(2026, 11, 29)) is None  # this year: only 2
+
+
+def test_without_an_allowance_the_old_balance_carries_on(make_adult):
+    """No yearly number given: same as before, one balance for the whole search."""
+    alice = make_adult("Alice", 2)
+    result = find_windows([alice], YEAR_START, YEAR_END, min_days=9, max_days=9)
+    assert find(result.windows, date(2027, 2, 13), date(2027, 2, 21)) is None
+
+
+def test_anniversary_renewal_date(make_adult):
+    """Renews Apr 1, not Jan 1: February is still this year's 2 days."""
+    alice = make_adult("Alice", 2, pto_allowance=20, pto_renews_on=(4, 1))
+    result = find_windows([alice], YEAR_START, YEAR_END, min_days=9, max_days=9)
+    assert find(result.windows, date(2027, 2, 13), date(2027, 2, 21)) is None
+    # After Apr 1 the new 20 apply: Sat May 22-Mon May 31 (Memorial Day) is 10 days for 5 PTO.
+    result = find_windows([alice], YEAR_START, YEAR_END, min_days=10, max_days=10)
+    assert find(result.windows, date(2027, 5, 22), date(2027, 5, 31)).pto_cost == {"Alice": 5}
+
+
+def test_trip_across_renewal_splits_its_days(make_adult):
+    """Winter break 2026-27: Dec 28-31 come from this year, Jan 4-8 from next year."""
+    trip = (date(2026, 12, 26), date(2027, 1, 10))  # 16 days, PTO Dec 28-31 (4) + Jan 4-8 (5)
+    enough = make_adult("Alice", 4, pto_allowance=5)
+    assert find(find_windows([enough], YEAR_START, YEAR_END, sort="longest").windows, *trip).pto_cost == {"Alice": 9}
+    short_this_year = make_adult("Alice", 3, pto_allowance=20)
+    assert find(find_windows([short_this_year], YEAR_START, YEAR_END, sort="longest").windows, *trip) is None
+
+
+def test_carryover_tops_up_next_year(make_adult):
+    """10 left, carry up to 5: next year has allowance + 5. Without carryover it's allowance only."""
+    feb = (date(2027, 2, 13), date(2027, 2, 21))  # 4 PTO
+    carries = make_adult("Alice", 10, pto_allowance=3, pto_carryover_max=5)
+    assert find(find_windows([carries], YEAR_START, YEAR_END, min_days=9, max_days=9).windows, *feb)
+    loses_it = make_adult("Alice", 10, pto_allowance=3)
+    assert find(find_windows([loses_it], YEAR_START, YEAR_END, min_days=9, max_days=9).windows, *feb) is None
+
+
+def test_booked_pto_counts_against_the_year_it_falls_in(make_adult):
+    """A booked January trip uses next year's allowance, not this year's balance."""
+    booked = PTOBlock(date(2027, 1, 4), date(2027, 1, 8))  # 5 workdays in 2027
+    alice = make_adult("Alice", 4, pto_allowance=8, committed_pto=[booked])
+    result = find_windows([alice], YEAR_START, YEAR_END, min_days=9, max_days=9)
+    assert find(result.windows, date(2026, 11, 21), date(2026, 11, 29)).pto_cost == {"Alice": 4}  # this year intact
+    assert find(result.windows, date(2027, 2, 13), date(2027, 2, 21)) is None  # 8 - 5 = 3 left, trip needs 4
+
+
+def test_a_trip_across_renewal_eats_into_its_own_carryover(make_adult):
+    """6 left, 2 per year, carry up to 5. On its own, next year looks like 2 + 5 = 7.
+    But this trip spends 4 of the 6 in December, so only 2 carry over: 2 + 2 = 4,
+    not enough for the 5 January days."""
+    trip = (date(2026, 12, 26), date(2027, 1, 10))
+    alice = make_adult("Alice", 6, pto_allowance=2, pto_carryover_max=5)
+    assert find(find_windows([alice], YEAR_START, YEAR_END, sort="longest").windows, *trip) is None
+    richer = make_adult("Alice", 9, pto_allowance=2, pto_carryover_max=5)  # 9 - 4 = 5 carry: 2 + 5 = 7
+    assert find(find_windows([richer], YEAR_START, YEAR_END, sort="longest").windows, *trip).pto_cost == {"Alice": 9}

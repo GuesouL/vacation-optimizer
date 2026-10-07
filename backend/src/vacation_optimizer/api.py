@@ -1,23 +1,29 @@
 """FastAPI app: the HTTP layer over the database and the optimizer engine."""
 
 import os
-from datetime import date, timedelta
+from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session, selectinload
 
-from . import orm
+from . import orm, sharing
+from .access import (
+    can_see_group,
+    manages,
+    my_group,
+    my_person,
+    not_found,
+    role_in,
+    usable_calendar,
+)
 from .auth import CurrentAccount
-from .db import get_session
-from .engine import SortOrder, distinct_windows, find_windows
+from .db import DB
 from .holidays import federal_calendar
-from .loader import events_in_range, to_engine_person
-from .models import Window
 from .schemas import (
+    AddMembersIn,
     CalendarIn,
     CalendarOut,
     EventIn,
@@ -25,6 +31,7 @@ from .schemas import (
     GroupIn,
     GroupOut,
     GroupSummary,
+    MemberOut,
     MeOut,
     PersonIn,
     PersonOut,
@@ -32,8 +39,8 @@ from .schemas import (
     PTOBlockOut,
     SearchOut,
     SubscribeIn,
-    WindowOut,
 )
+from .search import SearchParams, load_group, search_group
 
 app = FastAPI(title="Vacation Optimizer")
 
@@ -45,47 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-DB = Annotated[Session, Depends(get_session)]
-
-MAX_SEARCH_DAYS = 400  # about 13 months; keeps one search fast
-
-
-def not_found(model, id: int) -> HTTPException:
-    # Someone else's row gets the same 404 as a missing one, so ids can't be
-    # probed to learn what exists.
-    return HTTPException(404, f"{model.__name__} {id} not found")
-
-
-def manages(account: orm.Account, person: orm.Person) -> bool:
-    return account.id in (person.managed_by_account_id, person.linked_account_id)
-
-
-def my_person(session: Session, account: orm.Account, person_id: int) -> orm.Person:
-    person = session.get(orm.Person, person_id)
-    if person is None or not manages(account, person):
-        raise not_found(orm.Person, person_id)
-    return person
-
-
-def usable_calendar(session: Session, account: orm.Account, calendar_id: int) -> orm.Calendar:
-    """Shared calendars (no owner) are open to everyone; private ones only to their owner."""
-    calendar = session.get(orm.Calendar, calendar_id)
-    if calendar is None or calendar.owner_account_id not in (None, account.id):
-        raise not_found(orm.Calendar, calendar_id)
-    return calendar
-
-
-def can_see_group(account: orm.Account, group: orm.Group) -> bool:
-    return group.owner_account_id == account.id or any(
-        manages(account, member.person) for member in group.members
-    )
-
-
-def my_group(session: Session, account: orm.Account, group_id: int) -> orm.Group:
-    group = session.get(orm.Group, group_id)
-    if group is None or not can_see_group(account, group):
-        raise not_found(orm.Group, group_id)
-    return group
 
 
 class Holiday(BaseModel):
@@ -133,7 +99,7 @@ def me(account: CurrentAccount, session: DB) -> MeOut:
         name=account.name,
         self_person_id=next((p.id for p in people if p.linked_account_id == account.id), None),
         people=people,
-        groups=[GroupSummary(id=g.id, name=g.name) for g in groups],
+        groups=[GroupSummary(id=g.id, name=g.name, role=role_in(account, g)) for g in groups],
     )
 
 
@@ -142,8 +108,7 @@ def me(account: CurrentAccount, session: DB) -> MeOut:
 
 @app.post("/people", status_code=201)
 def create_person(body: PersonIn, account: CurrentAccount, session: DB) -> PersonOut:
-    fields = body.model_dump(exclude={"is_self"})
-    person = orm.Person(**fields, managed_by_account_id=account.id)
+    person = orm.Person(**body.columns(), managed_by_account_id=account.id)
     if body.is_self:
         already = session.scalars(
             select(orm.Person.id).where(orm.Person.linked_account_id == account.id)
@@ -180,12 +145,15 @@ def add_pto_block(
 
 
 @app.get("/calendars")
-def list_calendars(account: CurrentAccount, session: DB) -> list[CalendarOut]:
-    """Shared calendars plus this account's own."""
+def list_calendars(
+    account: CurrentAccount, session: DB, kind: orm.CalendarKind | None = None
+) -> list[CalendarOut]:
+    """Shared calendars plus this account's own. `?kind=SCHOOL` lists school districts."""
     owner = orm.Calendar.owner_account_id
-    return session.scalars(
-        select(orm.Calendar).where(or_(owner.is_(None), owner == account.id)).order_by(orm.Calendar.id)
-    ).all()
+    query = select(orm.Calendar).where(or_(owner.is_(None), owner == account.id))
+    if kind is not None:
+        query = query.where(orm.Calendar.kind == kind)
+    return session.scalars(query.order_by(orm.Calendar.name)).all()
 
 
 @app.post("/calendars", status_code=201)
@@ -213,9 +181,20 @@ def add_event(calendar_id: int, body: EventIn, account: CurrentAccount, session:
 # --- Groups and the optimizer --------------------------------------------
 
 
-def group_out(group: orm.Group) -> GroupOut:
-    people = [PersonOut.model_validate(m.person) for m in group.members]
-    return GroupOut(id=group.id, name=group.name, people=people)
+def group_out(group: orm.Group, account: orm.Account) -> GroupOut:
+    people = []
+    for member in group.members:
+        person, mine = member.person, manages(account, member.person)
+        # Free/busy privacy: other families see a name, never a balance or schedule.
+        people.append(MemberOut(
+            id=person.id,
+            name=person.name,
+            kind=person.kind,
+            mine=mine,
+            pto_balance=person.pto_balance if mine else None,
+            work_week=person.work_week if mine else None,
+        ))
+    return GroupOut(id=group.id, name=group.name, role=role_in(account, group), people=people)
 
 
 @app.post("/groups", status_code=201)
@@ -229,22 +208,38 @@ def create_group(body: GroupIn, account: CurrentAccount, session: DB) -> GroupOu
     )
     session.add(group)
     session.commit()
-    return group_out(group)
+    return group_out(group, account)
 
 
 @app.get("/groups/{group_id}")
 def get_group(group_id: int, account: CurrentAccount, session: DB) -> GroupOut:
-    return group_out(my_group(session, account, group_id))
+    return group_out(my_group(session, account, group_id), account)
 
 
-def window_out(window: Window) -> WindowOut:
-    return WindowOut(
-        start=window.start,
-        end=window.end,
-        days=window.days,
-        pto_cost=window.pto_cost,
-        score=window.score if window.bottleneck_cost else None,
-    )
+@app.post("/groups/{group_id}/members")
+def add_members(group_id: int, body: AddMembersIn, account: CurrentAccount, session: DB) -> GroupOut:
+    """Bring more of your own people (a kid, a partner) into a group you're in."""
+    group = my_group(session, account, group_id)
+    already = {m.person_id for m in group.members}
+    for person_id in dict.fromkeys(body.person_ids):
+        my_person(session, account, person_id)
+        if person_id not in already:
+            group.members.append(orm.GroupMember(person_id=person_id))
+    session.commit()
+    return group_out(group, account)
+
+
+@app.delete("/groups/{group_id}/members/{person_id}", status_code=204)
+def remove_member(group_id: int, person_id: int, account: CurrentAccount, session: DB) -> None:
+    """The owner can remove anyone; a member can take their own people out."""
+    group = my_group(session, account, group_id)
+    member = next((m for m in group.members if m.person_id == person_id), None)
+    if member is None:
+        raise not_found(orm.Person, person_id)
+    if role_in(account, group) != "OWNER" and not manages(account, member.person):
+        raise HTTPException(403, "You can only remove your own people")
+    group.members.remove(member)
+    session.commit()
 
 
 @app.get("/groups/{group_id}/windows")
@@ -252,55 +247,13 @@ def optimize(
     group_id: int,
     account: CurrentAccount,
     session: DB,
-    start: date,
-    end: date,
-    min_days: Annotated[int, Query(ge=2, le=31)] = 3,
-    max_days: Annotated[int, Query(ge=2, le=31)] = 16,
-    sort: SortOrder = "best_value",
-    limit: Annotated[int, Query(ge=1, le=200)] = 25,
-    distinct: bool = True,
+    params: Annotated[SearchParams, Depends()],
 ) -> SearchOut:
     """Rank the vacation windows everyone in the group can share."""
-    if end < start:
-        raise HTTPException(422, "end must be on or after start")
-    if end - start > timedelta(days=MAX_SEARCH_DAYS):
-        raise HTTPException(422, f"Search at most {MAX_SEARCH_DAYS} days at a time")
-    if min_days > max_days:
-        raise HTTPException(422, "min_days must be at most max_days")
-
-    # selectinload fetches every person's calendars and PTO in a few queries up
-    # front, instead of one query per person (the "N+1" problem). Events are
-    # loaded separately, filtered to the search dates by the database.
-    group = session.scalars(
-        select(orm.Group)
-        .where(orm.Group.id == group_id)
-        .options(
-            selectinload(orm.Group.members).selectinload(orm.GroupMember.person).options(
-                selectinload(orm.Person.calendars).selectinload(orm.PersonCalendar.calendar),
-                selectinload(orm.Person.pto_blocks),
-            )
-        )
-    ).one_or_none()
+    group = load_group(session, group_id)
     if group is None or not can_see_group(account, group):
         raise not_found(orm.Group, group_id)
+    return search_group(session, group, params)
 
-    calendar_ids = {link.calendar_id for m in group.members for link in m.person.calendars}
-    # Load holidays through Dec 31 even when the search ends sooner: a booked
-    # trip in December that covers Christmas mustn't be charged for Christmas.
-    load_end = max(end, date(start.year, 12, 31))
-    events = events_in_range(session, calendar_ids, start, load_end)
-    people = [to_engine_person(m.person, start, load_end, events) for m in group.members]
-    # PTO costs are keyed by name, so two people both named "Sam" get their ids added.
-    names = [p.name for p in people]
-    for person, member in zip(people, group.members):
-        if names.count(person.name) > 1:
-            person.name = f"{person.name} (#{member.person_id})"
-    result = find_windows(people, start, end, min_days, max_days, sort)
-    if distinct:  # one suggestion per real break, not five overlapping versions of it
-        result.windows = distinct_windows(result.windows)
-        result.free_long_weekends = distinct_windows(result.free_long_weekends)
-    return SearchOut(
-        windows=[window_out(w) for w in result.windows[:limit]],
-        free_long_weekends=[window_out(w) for w in result.free_long_weekends[:limit]],
-        message=result.message,
-    )
+
+app.include_router(sharing.router)

@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * List Calendars
-         * @description Shared calendars plus this account's own.
+         * @description Shared calendars plus this account's own. `?kind=SCHOOL` lists school districts.
          */
         get: operations["list_calendars_calendars_get"];
         put?: never;
@@ -188,6 +188,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/groups/{group_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Members
+         * @description Bring more of your own people (a kid, a partner) into a group you're in.
+         */
+        post: operations["add_members_groups__group_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{group_id}/members/{person_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Member
+         * @description The owner can remove anyone; a member can take their own people out.
+         */
+        delete: operations["remove_member_groups__group_id__members__person_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/groups/{group_id}/windows": {
         parameters: {
             query?: never;
@@ -208,10 +248,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/groups/{group_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Links */
+        get: operations["list_links_groups__group_id__links_get"];
+        put?: never;
+        /** Create Link */
+        post: operations["create_link_groups__group_id__links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{group_id}/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Link */
+        delete: operations["revoke_link_groups__group_id__links__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Link
+         * @description What the link is for, before signing in: the group's name and who sent it.
+         */
+        get: operations["preview_link_links__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/links/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invite
+         * @description Join the group with some of your own people (yourself, your kids).
+         */
+        post: operations["accept_invite_links__token__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/links/{token}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shared View
+         * @description Read-only plan for a view link: first names and dates, no account needed.
+         */
+        get: operations["shared_view_links__token__view_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptIn */
+        AcceptIn: {
+            /** Person Ids */
+            person_ids: number[];
+        };
+        /** AddMembersIn */
+        AddMembersIn: {
+            /** Person Ids */
+            person_ids: number[];
+        };
         /** CalendarIn */
         CalendarIn: {
             /** Name */
@@ -283,8 +428,13 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OWNER" | "MEMBER";
             /** People */
-            people: components["schemas"]["PersonOut"][];
+            people: components["schemas"]["MemberOut"][];
         };
         /** GroupSummary */
         GroupSummary: {
@@ -292,6 +442,11 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OWNER" | "MEMBER";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -308,6 +463,36 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** InvitePreview */
+        InvitePreview: {
+            /** Group Name */
+            group_name: string;
+            /** Invited By */
+            invited_by: string;
+            kind: components["schemas"]["LinkKind"];
+        };
+        /** LinkIn */
+        LinkIn: {
+            kind: components["schemas"]["LinkKind"];
+        };
+        /**
+         * LinkKind
+         * @enum {string}
+         */
+        LinkKind: "INVITE" | "VIEW";
+        /** LinkOut */
+        LinkOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["LinkKind"];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked */
+            revoked: boolean;
+        };
         /** MeOut */
         MeOut: {
             /** Email */
@@ -320,6 +505,38 @@ export interface components {
             people: components["schemas"]["PersonOut"][];
             /** Groups */
             groups: components["schemas"]["GroupSummary"][];
+        };
+        /**
+         * MemberOut
+         * @description A person in a group. Balance and work week are None unless they're yours.
+         */
+        MemberOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            kind: components["schemas"]["PersonKind"];
+            /** Mine */
+            mine: boolean;
+            /** Pto Balance */
+            pto_balance: number | null;
+            /** Work Week */
+            work_week: number[] | null;
+        };
+        /** NewLinkOut */
+        NewLinkOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["LinkKind"];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked */
+            revoked: boolean;
+            /** Token */
+            token: string;
         };
         /** PTOBlockIn */
         PTOBlockIn: {
@@ -381,6 +598,18 @@ export interface components {
              * @default false
              */
             is_self?: boolean;
+            /**
+             * Pto Allowance
+             * @description PTO days granted each renewal
+             */
+            pto_allowance?: number | null;
+            /** @description When PTO renews; omitted = Jan 1 */
+            pto_renews_on?: components["schemas"]["RenewsOn"] | null;
+            /**
+             * Pto Carryover Max
+             * @description Unused days that roll over
+             */
+            pto_carryover_max?: number | null;
         };
         /**
          * PersonKind
@@ -398,6 +627,18 @@ export interface components {
             pto_balance: number | null;
             /** Work Week */
             work_week: number[];
+            /** Pto Allowance */
+            pto_allowance: number | null;
+            pto_renews_on: components["schemas"]["RenewsOn"] | null;
+            /** Pto Carryover Max */
+            pto_carryover_max: number | null;
+        };
+        /** RenewsOn */
+        RenewsOn: {
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
         };
         /** SearchOut */
         SearchOut: {
@@ -407,6 +648,14 @@ export interface components {
             free_long_weekends: components["schemas"]["WindowOut"][];
             /** Message */
             message: string | null;
+        };
+        /** SharedViewOut */
+        SharedViewOut: {
+            /** Group Name */
+            group_name: string;
+            /** People */
+            people: string[];
+            search: components["schemas"]["SearchOut"];
         };
         /** SubscribeIn */
         SubscribeIn: {
@@ -637,7 +886,9 @@ export interface operations {
     };
     list_calendars_calendars_get: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: components["schemas"]["CalendarKind"] | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -651,6 +902,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -787,6 +1047,71 @@ export interface operations {
             };
         };
     };
+    add_members_groups__group_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembersIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_groups__group_id__members__person_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     optimize_groups__group_id__windows_get: {
         parameters: {
             query: {
@@ -813,6 +1138,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_links_groups__group_id__links_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_link_groups__group_id__links_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_link_groups__group_id__links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_link_links__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_links__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shared_view_links__token__view_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                min_days?: number;
+                max_days?: number;
+                sort?: "best_value" | "longest";
+                limit?: number;
+                distinct?: boolean;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedViewOut"];
                 };
             };
             /** @description Validation Error */

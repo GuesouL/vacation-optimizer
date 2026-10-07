@@ -1,19 +1,38 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
+import AddKid from "@/components/AddKid";
+import { ErrorNote } from "@/components/ProfileForm";
+import SharePanel from "@/components/SharePanel";
+import WindowList from "@/components/WindowList";
 import YearCalendar from "@/components/YearCalendar";
-import { api, apiToken, errorMessage, type Group, type Search, type Window } from "@/lib/api";
-import { addDays, formatRange, type ISODate, today } from "@/lib/dates";
+import { api, apiToken, errorMessage, type Group, type Me, type Search, type Window } from "@/lib/api";
+import { describeCost } from "@/lib/costs";
+import { addDays, type ISODate, today } from "@/lib/dates";
 
 type Sort = "best_value" | "longest";
 
+// useSearchParams needs a Suspense boundary so Next can still prerender the page shell.
 export default function PlanPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Plan />
+    </Suspense>
+  );
+}
+
+function Loading() {
+  return <main className="mx-auto max-w-md px-4 py-12 text-zinc-500">Finding your best breaks…</main>;
+}
+
+function Plan() {
   const router = useRouter();
+  const params = useSearchParams();
   const { status } = useSession();
-  const [selfId, setSelfId] = useState<number | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
   const [start] = useState<ISODate>(() => today());
   const end = addDays(start, 364);
   const [sort, setSort] = useState<Sort>("best_value");
@@ -22,25 +41,23 @@ export default function PlanPage() {
   const [holidays, setHolidays] = useState(new Map<ISODate, string>());
   const [selected, setSelected] = useState<Window | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0); // bump to re-fetch after a change
 
-  // Load your group and the holidays once you're signed in.
+  // ?group=12 picks a group; otherwise your first one.
+  const groupId = Number(params.get("group")) || me?.groups[0]?.id;
+
+  // Who you are, and the holidays, once you're signed in.
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/");
     if (status !== "authenticated") return;
     (async () => {
-      const me = await api.GET("/me");
-      if (!me.data) throw me.error;
-      const groupId = me.data.groups[0]?.id;
-      if (groupId == null) {
+      const found = await api.GET("/me");
+      if (!found.data) throw found.error;
+      if (!found.data.groups.length) {
         router.replace("/"); // no plan yet: back to onboarding
         return;
       }
-      setSelfId(me.data.self_person_id);
-      const found = await api.GET("/groups/{group_id}", {
-        params: { path: { group_id: groupId } },
-      });
-      if (!found.data) throw found.error;
-      setGroup(found.data);
+      setMe(found.data);
 
       const years = [...new Set([start.slice(0, 4), end.slice(0, 4)])].map(Number);
       const lists = await Promise.all(
@@ -48,9 +65,20 @@ export default function PlanPage() {
       );
       setHolidays(new Map(lists.flatMap((l) => l.data ?? []).map((h) => [h.date, h.name])));
     })().catch((err) => setError(errorMessage(err)));
-  }, [status, router, start, end]);
+  }, [status, router, start, end, version]);
 
-  // Re-rank whenever the sort order changes.
+  useEffect(() => {
+    if (groupId == null) return;
+    api
+      .GET("/groups/{group_id}", { params: { path: { group_id: groupId } } })
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        setGroup(data);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [groupId, version]);
+
+  // Re-rank whenever the group or the sort order changes.
   useEffect(() => {
     if (!group) return;
     api
@@ -65,40 +93,64 @@ export default function PlanPage() {
       .catch((err) => setError(errorMessage(err)));
   }, [group, start, end, sort]);
 
-  const person = group?.people.find((p) => p.id === selfId) ?? group?.people[0];
+  const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
 
-  function leave() {
+  function signOutNow() {
     apiToken.clear();
     signOut({ redirectTo: "/" });
   }
 
-  if (error) {
-    return (
-      <main className="mx-auto max-w-md px-4 py-12">
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-red-800 dark:bg-red-950 dark:text-red-200">
-          {error}
-        </p>
-      </main>
-    );
+  async function remove(personId: number) {
+    if (!group) return;
+    const { error } = await api.DELETE("/groups/{group_id}/members/{person_id}", {
+      params: { path: { group_id: group.id, person_id: personId } },
+    });
+    if (error) return setError(errorMessage(error));
+    const leftGroup = group.role !== "OWNER" && group.people.filter((p) => p.mine).length === 1;
+    // Took your last person out: the group isn't yours to see any more, so go to your next one.
+    if (leftGroup) {
+      setGroup(null);
+      router.replace("/plan");
+    }
+    setVersion((v) => v + 1);
   }
 
-  if (!person || !search) {
-    return <main className="mx-auto max-w-md px-4 py-12 text-zinc-500">Finding your best breaks…</main>;
-  }
+  if (error) return <main className="mx-auto max-w-md px-4 py-12"><ErrorNote>{error}</ErrorNote></main>;
+  if (!me || !group || !search) return <Loading />;
+
+  const solo = group.people.length === 1;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{person.name}&apos;s best breaks</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {solo && person ? `${person.name}'s best breaks` : group.name}
+          </h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {person.pto_balance} PTO days · next 12 months
+            {person?.pto_balance != null && `You have ${person.pto_balance} PTO days · `}next 12 months
           </p>
         </div>
-        <button onClick={leave} className="text-sm text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
-          Sign out
-        </button>
+        <div className="flex items-center gap-4 text-sm">
+          {me.groups.length > 1 && (
+            <label className="flex items-center gap-2">
+              <span className="text-zinc-500">Plan</span>
+              <select
+                value={group.id}
+                onChange={(e) => router.push(`/plan?group=${e.target.value}`)}
+                className="rounded-lg border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                {me.groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button onClick={signOutNow} className="text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
+            Sign out
+          </button>
+        </div>
       </header>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[22rem_1fr]">
@@ -125,14 +177,11 @@ export default function PlanPage() {
 
           <WindowList
             title="Ranked suggestions"
-            empty="No breaks fit your PTO in the next 12 months."
+            empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
             windows={search.windows}
             selected={selected}
             onSelect={setSelected}
-            describe={(w) => {
-              const cost = w.pto_cost[person.name];
-              return `${w.days} days off for ${cost} PTO day${cost === 1 ? "" : "s"}`;
-            }}
+            describe={describeCost}
             badge={(w) => (sort === "best_value" && w.score ? `${w.score.toFixed(1)}×` : null)}
           />
 
@@ -142,9 +191,32 @@ export default function PlanPage() {
             windows={search.free_long_weekends}
             selected={selected}
             onSelect={setSelected}
-            describe={(w) => `${w.days} days off, no PTO needed`}
+            describe={describeCost}
             badge={() => null}
           />
+
+          <div className="mt-8">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Who&apos;s going</h2>
+            <ul className="mt-2 space-y-1 text-sm">
+              {group.people.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-2">
+                  <span>
+                    {p.name}
+                    {p.mine && (
+                      <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
+                    )}
+                  </span>
+                  {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
+                    <button onClick={() => remove(p.id)} className="text-xs text-zinc-500 underline">
+                      {p.mine ? "Take out" : "Remove"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <AddKid groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
+            {group.role === "OWNER" && <SharePanel groupId={group.id} />}
+          </div>
         </section>
 
         <section aria-label="Year calendar">
@@ -152,55 +224,10 @@ export default function PlanPage() {
           <p className="mt-4 flex flex-wrap gap-4 text-xs text-zinc-500">
             <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Holiday</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-600 align-middle" />Selected trip</span>
-            <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />PTO day</span>
+            <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />Your PTO day</span>
           </p>
         </section>
       </div>
     </main>
-  );
-}
-
-function WindowList(props: {
-  title: string;
-  empty: string;
-  windows: Window[];
-  selected: Window | null;
-  onSelect: (w: Window) => void;
-  describe: (w: Window) => string;
-  badge: (w: Window) => string | null;
-}) {
-  return (
-    <div className="mt-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">{props.title}</h2>
-      {props.windows.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">{props.empty}</p>
-      ) : (
-        <ol className="mt-2 space-y-2">
-          {props.windows.map((w) => {
-            const active = props.selected?.start === w.start && props.selected?.end === w.end;
-            const badge = props.badge(w);
-            return (
-              <li key={`${w.start}-${w.end}`}>
-                <button
-                  onClick={() => props.onSelect(w)}
-                  aria-pressed={active}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                    active
-                      ? "border-teal-600 bg-teal-50 dark:bg-teal-950"
-                      : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-800"
-                  }`}
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium">{formatRange(w.start, w.end)}</span>
-                    {badge && <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{badge}</span>}
-                  </div>
-                  <div className="text-sm text-zinc-500">{props.describe(w)}</div>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </div>
   );
 }
