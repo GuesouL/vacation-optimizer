@@ -5,12 +5,13 @@ error, and generate the OpenAPI schema the TypeScript front end will be built fr
 """
 
 from datetime import date, datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from . import orm
 from .access import Role
 from .models import Effect
-from . import orm
 from .orm import CalendarKind, LinkKind, PersonKind, PTOStatus
 
 
@@ -42,8 +43,12 @@ class RenewsOn(BaseModel):
         return self
 
 
+# "Sam " and "Sam" look the same on screen, so spaces are trimmed before saving.
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
 class PersonIn(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: Name
     kind: PersonKind
     pto_balance: int | None = Field(default=None, ge=0)
     work_week: list[int] = Field(default=[0, 1, 2, 3, 4], description="Mon=0 ... Sun=6")

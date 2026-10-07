@@ -28,7 +28,7 @@ from .schemas import (
     NewLinkOut,
     SharedViewOut,
 )
-from .search import SearchParams, load_group, search_group
+from .search import SearchParams, first_name, load_group, public_names, search_group
 
 router = APIRouter()
 
@@ -37,10 +37,6 @@ LINK_LIFETIME = timedelta(days=90)
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def first_name(name: str) -> str:
-    return name.split()[0] if name.split() else name
 
 
 def link_out(link: orm.ShareLink) -> LinkOut:
@@ -135,6 +131,6 @@ def shared_view(token: str, session: DB, params: Annotated[SearchParams, Depends
     group = load_group(session, link.group_id)
     return SharedViewOut(
         group_name=group.name,
-        people=[first_name(m.person.name) for m in group.members],
-        search=search_group(session, group, params, label=lambda person: first_name(person.name)),
+        people=public_names([m.person.name for m in group.members]),
+        search=search_group(session, group, params, public=True),
     )

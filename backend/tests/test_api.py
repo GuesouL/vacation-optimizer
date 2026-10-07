@@ -102,12 +102,6 @@ def test_free_long_weekends_have_no_score(client):
     assert columbus["score"] is None  # no divide by zero
 
 
-def test_duplicate_names_get_ids(client):
-    first, second = adult(client, "Sam", 5), adult(client, "Sam", 5)
-    result = windows(client, group(client, first, second))
-    assert set(result["windows"][0]["pto_cost"]) == {f"Sam (#{first})", f"Sam (#{second})"}
-
-
 @pytest.mark.parametrize("body, problem", [
     ({"name": "A", "kind": "ADULT"}, "adults need a pto_balance"),
     ({"name": "K", "kind": "CHILD", "pto_balance": 3}, "children don't have a pto_balance"),

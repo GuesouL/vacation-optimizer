@@ -122,6 +122,9 @@ def find_windows(
     sort: SortOrder = "best_value",
 ) -> SearchResult:
     total_days = (end - start).days + 1
+    if len({p.name for p in people}) != len(people):
+        # Everything below is keyed by name; a repeat would silently merge two people.
+        raise ValueError("every person in a search needs a different name")
     work = {}
     busy = {}
     # Worked out once per search, not once per window: it doesn't change as the window slides.

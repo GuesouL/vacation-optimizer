@@ -1,6 +1,6 @@
 """Run the optimizer for a group. Shared by the private plan and the public view link."""
 
-from collections.abc import Callable
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Annotated
@@ -64,14 +64,53 @@ def window_out(window: Window) -> WindowOut:
     )
 
 
+def unique_labels(names: list[str]) -> list[str]:
+    """Number look-alike names in list order: Sam, sam -> "Sam (1)", "sam (2)".
+
+    Results are keyed by these labels, so they must never collide. A name that
+    already looks like a label ("Sam (1)") can clash again after one round,
+    so keep going until every label is different.
+    """
+    labels = list(names)
+    while True:
+        same: dict[str, list[int]] = defaultdict(list)
+        for index, label in enumerate(labels):
+            same[label.casefold()].append(index)
+        clashes = [indexes for indexes in same.values() if len(indexes) > 1]
+        if not clashes:
+            return labels
+        for indexes in clashes:
+            for number, index in enumerate(indexes, start=1):
+                labels[index] = f"{labels[index]} ({number})"
+
+
+def first_name(name: str) -> str:
+    return name.split()[0] if name.split() else name
+
+
+def public_names(names: list[str]) -> list[str]:
+    """First names only, plus a last initial when two people share a first name:
+    "Sam Smith", "Sam Jones" -> "Sam S.", "Sam J."."""
+    firsts = [first_name(n) for n in names]
+    shared = {f.casefold() for f in firsts if sum(g.casefold() == f.casefold() for g in firsts) > 1}
+    result = []
+    for name, first in zip(names, firsts):
+        parts = name.split()
+        if first.casefold() in shared and len(parts) > 1:
+            result.append(f"{first} {parts[-1][0].upper()}.")
+        else:
+            result.append(first)
+    return unique_labels(result)
+
+
 def search_group(
     session: Session,
     group: orm.Group,
     params: SearchParams,
-    label: Callable[[orm.Person], str] = lambda person: person.name,
+    public: bool = False,
 ) -> SearchOut:
-    """Rank the windows everyone in the group can share. `label` names each
-    person in the results (the view link shows first names only)."""
+    """Rank the windows everyone in the group can share. A public search (the
+    view link) names people by first name only."""
     params.check()
     start, end = params.start, params.end
     calendar_ids = {link.calendar_id for m in group.members for link in m.person.calendars}
@@ -80,10 +119,10 @@ def search_group(
     load_end = max(end, date(start.year, 12, 31))
     events = events_in_range(session, calendar_ids, start, load_end)
     people = [to_engine_person(m.person, start, load_end, events) for m in group.members]
-    # PTO costs are keyed by name, so two people both named "Sam" get their ids added.
-    names = [label(m.person) for m in group.members]
-    for person, member, name in zip(people, group.members, names):
-        person.name = f"{name} (#{member.person_id})" if names.count(name) > 1 else name
+    # PTO costs are keyed by name, so every label must be different.
+    names = [m.person.name for m in group.members]
+    for person, label in zip(people, public_names(names) if public else unique_labels(names)):
+        person.name = label
     result = find_windows(people, start, end, params.min_days, params.max_days, params.sort)
     if params.distinct:  # one suggestion per real break, not five overlapping versions of it
         result.windows = distinct_windows(result.windows)
