@@ -1,6 +1,14 @@
 import { api, FEDERAL_CALENDAR_ID, type Me } from "./api";
 
-export type Profile = { name: string; ptoBalance: number; workWeek: number[]; federal: boolean };
+export type Renewal = { allowance: number; month: number; day: number; carryoverMax: number };
+
+export type Profile = {
+  name: string;
+  ptoBalance: number;
+  workWeek: number[];
+  federal: boolean;
+  renewal: Renewal | null; // null: plan the whole year with today's balance
+};
 
 /**
  * Your own person record, created once. If an earlier try stopped halfway,
@@ -15,6 +23,11 @@ export async function ensureSelf(me: Me, profile: Profile): Promise<number> {
       pto_balance: profile.ptoBalance,
       work_week: profile.workWeek,
       is_self: true,
+      ...(profile.renewal && {
+        pto_allowance: profile.renewal.allowance,
+        pto_renews_on: { month: profile.renewal.month, day: profile.renewal.day },
+        pto_carryover_max: profile.renewal.carryoverMax,
+      }),
     },
   });
   if (!person.data) throw person.error;

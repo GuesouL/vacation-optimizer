@@ -57,5 +57,5 @@ and creates the Account row on first use. Every route except `/health` and
 ## Status
 - Phase 1 (optimizer engine): done.
 - Phase 2 (database + API): done.
-- Phase 4 (in progress): accounts and sign-in; invite and view-only links with owner/member roles and free/busy privacy; kids with a school district calendar (NYC 2026-27 seeded). PTO renewal next.
+- Phase 4 (in progress): accounts and sign-in; invite and view-only links with owner/member roles and free/busy privacy; kids with a school district calendar (NYC 2026-27 seeded); optional PTO renewal (days per year, renewal date, carryover cap).
 - Phase 3 (solo UI): onboarding (name, PTO, work week), ranked suggestions with best-value / longest-trip sort, free long weekends, 12-month calendar.

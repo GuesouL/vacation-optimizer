@@ -1654,6 +1654,45 @@
             "title": "Is Self",
             "description": "This person is the signed-in user",
             "default": false
+          },
+          "pto_allowance": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Allowance",
+            "description": "PTO days granted each renewal"
+          },
+          "pto_renews_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenewsOn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When PTO renews; omitted = Jan 1"
+          },
+          "pto_carryover_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Carryover Max",
+            "description": "Unused days that roll over"
           }
         },
         "type": "object",
@@ -1702,6 +1741,38 @@
             },
             "type": "array",
             "title": "Work Week"
+          },
+          "pto_allowance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Allowance"
+          },
+          "pto_renews_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenewsOn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pto_carryover_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Carryover Max"
           }
         },
         "type": "object",
@@ -1710,9 +1781,34 @@
           "name",
           "kind",
           "pto_balance",
-          "work_week"
+          "work_week",
+          "pto_allowance",
+          "pto_renews_on",
+          "pto_carryover_max"
         ],
         "title": "PersonOut"
+      },
+      "RenewsOn": {
+        "properties": {
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "day"
+        ],
+        "title": "RenewsOn"
       },
       "SearchOut": {
         "properties": {

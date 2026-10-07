@@ -598,6 +598,18 @@ export interface components {
              * @default false
              */
             is_self?: boolean;
+            /**
+             * Pto Allowance
+             * @description PTO days granted each renewal
+             */
+            pto_allowance?: number | null;
+            /** @description When PTO renews; omitted = Jan 1 */
+            pto_renews_on?: components["schemas"]["RenewsOn"] | null;
+            /**
+             * Pto Carryover Max
+             * @description Unused days that roll over
+             */
+            pto_carryover_max?: number | null;
         };
         /**
          * PersonKind
@@ -615,6 +627,18 @@ export interface components {
             pto_balance: number | null;
             /** Work Week */
             work_week: number[];
+            /** Pto Allowance */
+            pto_allowance: number | null;
+            pto_renews_on: components["schemas"]["RenewsOn"] | null;
+            /** Pto Carryover Max */
+            pto_carryover_max: number | null;
+        };
+        /** RenewsOn */
+        RenewsOn: {
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
         };
         /** SearchOut */
         SearchOut: {
