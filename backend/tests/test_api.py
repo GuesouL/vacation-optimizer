@@ -1,47 +1,19 @@
-"""API tests against a real Postgres database.
+"""API tests against a real Postgres database (fixtures in conftest.py).
 
-Each test runs inside a transaction that's rolled back afterward, so tests
-can't leak data into each other and the database never needs cleaning.
-Needs the test database migrated first: see the README.
+Every request is signed in as a test parent unless a test says otherwise.
 """
 
-import os
 from datetime import date
 from itertools import pairwise
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from vacation_optimizer.api import app
 from vacation_optimizer.db import get_session
 from vacation_optimizer.loader import events_in_range, overlapping_events
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql+psycopg://vacation:vacation@localhost:5432/vacation_test"
-)
 FEDERAL_CALENDAR_ID = 1  # seeded by the first migration
-
-
-@pytest.fixture(scope="module")
-def db_engine():
-    engine = create_engine(TEST_DATABASE_URL)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def client(db_engine):
-    with db_engine.connect() as connection:
-        transaction = connection.begin()
-        # Every commit() inside the app becomes a savepoint inside our transaction.
-        session = Session(bind=connection, join_transaction_mode="create_savepoint")
-        app.dependency_overrides[get_session] = lambda: session
-        yield TestClient(app)
-        app.dependency_overrides.clear()
-        session.close()
-        transaction.rollback()
 
 
 def adult(client, name, pto, **extra):

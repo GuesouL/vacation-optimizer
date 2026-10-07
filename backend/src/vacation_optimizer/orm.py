@@ -53,7 +53,7 @@ class PTOStatus(Enum):
 
 
 class Account(Base):
-    """A login. Phase 2 doesn't do sign-in yet; the table is here so people can link to it."""
+    """A login. Created on someone's first signed-in request (see auth.py)."""
 
     __tablename__ = "account"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -74,8 +74,10 @@ class Person(Base):
     pto_balance: Mapped[int | None]  # NULL for kids
     # Weekdays they work, Mon=0 ... Sun=6. A nurse working Wed-Sun is {2,3,4,5,6}.
     work_week: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger), default=lambda: [0, 1, 2, 3, 4])
-    managed_by_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"))
-    linked_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"))
+    # Who can edit this person: the account that added them (a parent adding a
+    # kid), and the person's own account once they sign up.
+    managed_by_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"), index=True)
+    linked_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"), index=True)
 
     calendars: Mapped[list["PersonCalendar"]] = relationship(cascade="all, delete-orphan")
     pto_blocks: Mapped[list["PTOBlock"]] = relationship(cascade="all, delete-orphan")
@@ -154,6 +156,8 @@ class Group(Base):
     __tablename__ = "trip_group"  # "group" is a reserved word in SQL
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
+    # NULL only for groups made before sign-in existed; nobody can open those.
+    owner_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"), index=True)
 
     members: Mapped[list["GroupMember"]] = relationship(cascade="all, delete-orphan")
 

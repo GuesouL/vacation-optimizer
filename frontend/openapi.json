@@ -71,6 +71,30 @@
         }
       }
     },
+    "/me": {
+      "get": {
+        "summary": "Me",
+        "description": "Who's signed in, the people they manage, and the groups they can open.",
+        "operationId": "me_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/people": {
       "post": {
         "summary": "Create Person",
@@ -106,7 +130,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/people/{person_id}/calendars": {
@@ -114,6 +143,11 @@
         "summary": "Subscribe",
         "description": "Turn a calendar on for a person (or update their excluded holidays).",
         "operationId": "subscribe_people__person_id__calendars_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "person_id",
@@ -156,6 +190,11 @@
       "post": {
         "summary": "Add Pto Block",
         "operationId": "add_pto_block_people__person_id__pto_blocks_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "person_id",
@@ -204,6 +243,7 @@
     "/calendars": {
       "get": {
         "summary": "List Calendars",
+        "description": "Shared calendars plus this account's own.",
         "operationId": "list_calendars_calendars_get",
         "responses": {
           "200": {
@@ -220,7 +260,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       },
       "post": {
         "summary": "Create Calendar",
@@ -256,13 +301,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/calendars/{calendar_id}/events": {
       "post": {
         "summary": "Add Event",
         "operationId": "add_event_calendars__calendar_id__events_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "calendar_id",
@@ -343,13 +398,23 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/groups/{group_id}": {
       "get": {
         "summary": "Get Group",
         "operationId": "get_group_groups__group_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "group_id",
@@ -390,6 +455,11 @@
         "summary": "Optimize",
         "description": "Rank the vacation windows everyone in the group can share.",
         "operationId": "optimize_groups__group_id__windows_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "group_id",
@@ -683,6 +753,24 @@
         ],
         "title": "GroupOut"
       },
+      "GroupSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "GroupSummary"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -714,6 +802,52 @@
           "name"
         ],
         "title": "Holiday"
+      },
+      "MeOut": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "self_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Person Id"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupSummary"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "name",
+          "self_person_id",
+          "people",
+          "groups"
+        ],
+        "title": "MeOut"
       },
       "PTOBlockIn": {
         "properties": {
@@ -813,6 +947,12 @@
               3,
               4
             ]
+          },
+          "is_self": {
+            "type": "boolean",
+            "title": "Is Self",
+            "description": "This person is the signed-in user",
+            "default": false
           }
         },
         "type": "object",
@@ -1014,6 +1154,12 @@
           "score"
         ],
         "title": "WindowOut"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

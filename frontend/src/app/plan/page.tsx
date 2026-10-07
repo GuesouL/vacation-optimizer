@@ -1,17 +1,19 @@
 "use client";
 
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import YearCalendar from "@/components/YearCalendar";
-import { api, errorMessage, type Group, type Search, type Window } from "@/lib/api";
+import { api, apiToken, errorMessage, type Group, type Search, type Window } from "@/lib/api";
 import { addDays, formatRange, type ISODate, today } from "@/lib/dates";
-import { clearPlan, loadPlan } from "@/lib/storage";
 
 type Sort = "best_value" | "longest";
 
 export default function PlanPage() {
   const router = useRouter();
+  const { status } = useSession();
+  const [selfId, setSelfId] = useState<number | null>(null);
   const [start] = useState<ISODate>(() => today());
   const end = addDays(start, 364);
   const [sort, setSort] = useState<Sort>("best_value");
@@ -21,23 +23,23 @@ export default function PlanPage() {
   const [selected, setSelected] = useState<Window | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the person and the holidays once.
+  // Load your group and the holidays once you're signed in.
   useEffect(() => {
-    const plan = loadPlan();
-    if (!plan) {
-      router.replace("/");
-      return;
-    }
+    if (status === "unauthenticated") router.replace("/");
+    if (status !== "authenticated") return;
     (async () => {
-      const found = await api.GET("/groups/{group_id}", {
-        params: { path: { group_id: plan.groupId } },
-      });
-      if (!found.data) {
-        // The saved plan points at a group the database no longer has.
-        clearPlan();
-        router.replace("/");
+      const me = await api.GET("/me");
+      if (!me.data) throw me.error;
+      const groupId = me.data.groups[0]?.id;
+      if (groupId == null) {
+        router.replace("/"); // no plan yet: back to onboarding
         return;
       }
+      setSelfId(me.data.self_person_id);
+      const found = await api.GET("/groups/{group_id}", {
+        params: { path: { group_id: groupId } },
+      });
+      if (!found.data) throw found.error;
       setGroup(found.data);
 
       const years = [...new Set([start.slice(0, 4), end.slice(0, 4)])].map(Number);
@@ -46,7 +48,7 @@ export default function PlanPage() {
       );
       setHolidays(new Map(lists.flatMap((l) => l.data ?? []).map((h) => [h.date, h.name])));
     })().catch((err) => setError(errorMessage(err)));
-  }, [router, start, end]);
+  }, [status, router, start, end]);
 
   // Re-rank whenever the sort order changes.
   useEffect(() => {
@@ -63,12 +65,12 @@ export default function PlanPage() {
       .catch((err) => setError(errorMessage(err)));
   }, [group, start, end, sort]);
 
-  const person = group?.people[0];
+  const person = group?.people.find((p) => p.id === selfId) ?? group?.people[0];
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
 
-  function startOver() {
-    clearPlan();
-    router.push("/");
+  function leave() {
+    apiToken.clear();
+    signOut({ redirectTo: "/" });
   }
 
   if (error) {
@@ -94,8 +96,8 @@ export default function PlanPage() {
             {person.pto_balance} PTO days · next 12 months
           </p>
         </div>
-        <button onClick={startOver} className="text-sm text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
-          Start over
+        <button onClick={leave} className="text-sm text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
+          Sign out
         </button>
       </header>
 
