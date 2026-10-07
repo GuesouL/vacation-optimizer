@@ -23,6 +23,7 @@ from .auth import CurrentAccount
 from .db import DB
 from .holidays import federal_calendar
 from .schemas import (
+    AddMembersIn,
     CalendarIn,
     CalendarOut,
     EventIn,
@@ -145,12 +146,15 @@ def add_pto_block(
 
 
 @app.get("/calendars")
-def list_calendars(account: CurrentAccount, session: DB) -> list[CalendarOut]:
-    """Shared calendars plus this account's own."""
+def list_calendars(
+    account: CurrentAccount, session: DB, kind: orm.CalendarKind | None = None
+) -> list[CalendarOut]:
+    """Shared calendars plus this account's own. `?kind=SCHOOL` lists school districts."""
     owner = orm.Calendar.owner_account_id
-    return session.scalars(
-        select(orm.Calendar).where(or_(owner.is_(None), owner == account.id)).order_by(orm.Calendar.id)
-    ).all()
+    query = select(orm.Calendar).where(or_(owner.is_(None), owner == account.id))
+    if kind is not None:
+        query = query.where(orm.Calendar.kind == kind)
+    return session.scalars(query.order_by(orm.Calendar.name)).all()
 
 
 @app.post("/calendars", status_code=201)
@@ -211,6 +215,19 @@ def create_group(body: GroupIn, account: CurrentAccount, session: DB) -> GroupOu
 @app.get("/groups/{group_id}")
 def get_group(group_id: int, account: CurrentAccount, session: DB) -> GroupOut:
     return group_out(my_group(session, account, group_id), account)
+
+
+@app.post("/groups/{group_id}/members")
+def add_members(group_id: int, body: AddMembersIn, account: CurrentAccount, session: DB) -> GroupOut:
+    """Bring more of your own people (a kid, a partner) into a group you're in."""
+    group = my_group(session, account, group_id)
+    already = {m.person_id for m in group.members}
+    for person_id in dict.fromkeys(body.person_ids):
+        my_person(session, account, person_id)
+        if person_id not in already:
+            group.members.append(orm.GroupMember(person_id=person_id))
+    session.commit()
+    return group_out(group, account)
 
 
 @app.delete("/groups/{group_id}/members/{person_id}", status_code=204)

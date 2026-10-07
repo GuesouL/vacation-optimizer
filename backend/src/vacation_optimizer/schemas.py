@@ -178,6 +178,10 @@ class AcceptIn(BaseModel):
     person_ids: list[int] = Field(min_length=1)
 
 
+class AddMembersIn(BaseModel):
+    person_ids: list[int] = Field(min_length=1)
+
+
 class SharedViewOut(BaseModel):
     group_name: str
     people: list[str]  # first names only
