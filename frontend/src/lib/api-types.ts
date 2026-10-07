@@ -42,6 +42,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description Who's signed in, the people they manage, and the groups they can open.
+         */
+        get: operations["me_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/people": {
         parameters: {
             query?: never;
@@ -103,7 +123,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Calendars */
+        /**
+         * List Calendars
+         * @description Shared calendars plus this account's own.
+         */
         get: operations["list_calendars_calendars_get"];
         put?: never;
         /** Create Calendar */
@@ -263,6 +286,13 @@ export interface components {
             /** People */
             people: components["schemas"]["PersonOut"][];
         };
+        /** GroupSummary */
+        GroupSummary: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -277,6 +307,19 @@ export interface components {
             date: string;
             /** Name */
             name: string;
+        };
+        /** MeOut */
+        MeOut: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Self Person Id */
+            self_person_id: number | null;
+            /** People */
+            people: components["schemas"]["PersonOut"][];
+            /** Groups */
+            groups: components["schemas"]["GroupSummary"][];
         };
         /** PTOBlockIn */
         PTOBlockIn: {
@@ -332,6 +375,12 @@ export interface components {
              *     ]
              */
             work_week?: number[];
+            /**
+             * Is Self
+             * @description This person is the signed-in user
+             * @default false
+             */
+            is_self?: boolean;
         };
         /**
          * PersonKind
@@ -461,6 +510,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
                 };
             };
         };

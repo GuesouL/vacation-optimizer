@@ -32,6 +32,7 @@ class PersonIn(BaseModel):
     kind: PersonKind
     pto_balance: int | None = Field(default=None, ge=0)
     work_week: list[int] = Field(default=[0, 1, 2, 3, 4], description="Mon=0 ... Sun=6")
+    is_self: bool = Field(default=False, description="This person is the signed-in user")
 
     @model_validator(mode="after")
     def check_person(self):
@@ -41,6 +42,8 @@ class PersonIn(BaseModel):
             raise ValueError("adults need a pto_balance")
         if self.kind is PersonKind.CHILD and self.pto_balance is not None:
             raise ValueError("children don't have a pto_balance")
+        if self.is_self and self.kind is not PersonKind.ADULT:
+            raise ValueError("your own profile must be an adult")
         return self
 
 
@@ -107,6 +110,19 @@ class GroupOut(BaseModel):
     id: int
     name: str
     people: list[PersonOut]
+
+
+class GroupSummary(BaseModel):
+    id: int
+    name: str
+
+
+class MeOut(BaseModel):
+    email: str
+    name: str
+    self_person_id: int | None  # None until they fill in their own profile
+    people: list[PersonOut]  # everyone this account can edit, themselves included
+    groups: list[GroupSummary]
 
 
 class WindowOut(BaseModel):

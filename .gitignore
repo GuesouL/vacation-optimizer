@@ -2,3 +2,7 @@
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Secrets stay on your machine. The .example files are committed as templates.
+.env
+.env.local

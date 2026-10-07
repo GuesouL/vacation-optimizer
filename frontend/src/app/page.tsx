@@ -1,15 +1,17 @@
 "use client";
 
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 
-import { api, errorMessage, FEDERAL_CALENDAR_ID } from "@/lib/api";
-import { loadPlan, savePlan } from "@/lib/storage";
+import { api, errorMessage, FEDERAL_CALENDAR_ID, type Me } from "@/lib/api";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default function Onboarding() {
+export default function Home() {
   const router = useRouter();
+  const { status } = useSession();
+  const [me, setMe] = useState<Me | null>(null);
   const [name, setName] = useState("");
   const [pto, setPto] = useState("10");
   const [workWeek, setWorkWeek] = useState([0, 1, 2, 3, 4]);
@@ -17,10 +19,21 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Already set up in this browser? Go straight to the plan.
+  // Signed in and already have a plan? Go straight to it.
   useEffect(() => {
-    if (loadPlan()) router.replace("/plan");
-  }, [router]);
+    if (status !== "authenticated") return;
+    api
+      .GET("/me")
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        if (data.groups.length) router.replace("/plan");
+        else {
+          setMe(data);
+          setName((current) => current || data.name);
+        }
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [status, router]);
 
   function toggleDay(day: number) {
     setWorkWeek((days) =>
@@ -33,12 +46,16 @@ export default function Onboarding() {
     setSaving(true);
     setError(null);
     try {
-      // Three calls, in order: the person, their holidays, then a group of one.
-      const person = await api.POST("/people", {
-        body: { name: name.trim(), kind: "ADULT", pto_balance: Number(pto), work_week: workWeek },
-      });
-      if (!person.data) throw person.error;
-      const personId = person.data.id;
+      // Three calls, in order: you, your holidays, then a group of one.
+      // If a profile already exists (an earlier try stopped halfway), reuse it.
+      let personId = me?.self_person_id;
+      if (personId == null) {
+        const person = await api.POST("/people", {
+          body: { name: name.trim(), kind: "ADULT", pto_balance: Number(pto), work_week: workWeek, is_self: true },
+        });
+        if (!person.data) throw person.error;
+        personId = person.data.id;
+      }
 
       if (federal) {
         const link = await api.POST("/people/{person_id}/calendars", {
@@ -53,7 +70,6 @@ export default function Onboarding() {
       });
       if (!group.data) throw group.error;
 
-      savePlan({ personId, groupId: group.data.id });
       router.push("/plan");
     } catch (err) {
       setError(errorMessage(err));
@@ -61,12 +77,47 @@ export default function Onboarding() {
     }
   }
 
-  return (
-    <main className="mx-auto w-full max-w-md px-4 py-12">
+  const intro = (
+    <>
       <h1 className="text-3xl font-semibold tracking-tight">Vacation Optimizer</h1>
       <p className="mt-2 text-zinc-600 dark:text-zinc-400">
         Find the most days off for the fewest PTO days.
       </p>
+    </>
+  );
+
+  if (status === "unauthenticated") {
+    return (
+      <main className="mx-auto w-full max-w-md px-4 py-12">
+        {intro}
+        <button
+          onClick={() => signIn()}
+          className="mt-8 w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800"
+        >
+          Sign in to start
+        </button>
+      </main>
+    );
+  }
+
+  if (!me) {
+    return (
+      <main className="mx-auto w-full max-w-md px-4 py-12">
+        {intro}
+        {error ? (
+          <p role="alert" className="mt-8 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+            {error}
+          </p>
+        ) : (
+          <p className="mt-8 text-zinc-500">Loading…</p>
+        )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-md px-4 py-12">
+      {intro}
 
       <form onSubmit={submit} className="mt-8 space-y-6">
         <label className="block">
