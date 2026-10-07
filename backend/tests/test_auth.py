@@ -56,7 +56,7 @@ def test_me_lists_my_people_and_groups(client):
     me = client.get("/me").json()
     assert me["self_person_id"] == me_id
     assert [p["id"] for p in me["people"]] == [me_id, kid]
-    assert me["groups"] == [{"id": group_id, "name": "Trip"}]
+    assert me["groups"] == [{"id": group_id, "name": "Trip", "role": "OWNER"}]
 
 
 def test_only_one_self_profile(client):

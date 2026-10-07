@@ -7,13 +7,14 @@ optimizer stays testable without a database.
 Every date column is `Date` (Postgres `date`), never a timestamp.
 """
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 
 from sqlalchemy import (
     ARRAY,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     SmallInteger,
@@ -50,6 +51,11 @@ class CalendarKind(Enum):
 class PTOStatus(Enum):
     PROPOSED = "PROPOSED"
     COMMITTED = "COMMITTED"
+
+
+class LinkKind(Enum):
+    INVITE = "INVITE"  # join the group (needs an account)
+    VIEW = "VIEW"  # read-only: first names and dates, no account needed
 
 
 class Account(Base):
@@ -170,3 +176,21 @@ class GroupMember(Base):
     person_id: Mapped[int] = mapped_column(ForeignKey("person.id", ondelete="CASCADE"))
 
     person: Mapped[Person] = relationship()
+
+
+class ShareLink(Base):
+    """A secret link to a group. Only a hash of the token is stored, the same way
+    passwords are: a leaked database backup can't be turned back into working links."""
+
+    __tablename__ = "share_link"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("trip_group.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[LinkKind] = mapped_column(SAEnum(LinkKind, name="link_kind"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256, hex
+    created_by_account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
+    # Expiry is a moment in time, not a calendar day, so this one column is a
+    # timestamp with a time zone. Every planning date stays a plain `date`.
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    group: Mapped[Group] = relationship()

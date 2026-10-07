@@ -450,6 +450,53 @@
         }
       }
     },
+    "/groups/{group_id}/members/{person_id}": {
+      "delete": {
+        "summary": "Remove Member",
+        "description": "The owner can remove anyone; a member can take their own people out.",
+        "operationId": "remove_member_groups__group_id__members__person_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/groups/{group_id}/windows": {
       "get": {
         "summary": "Optimize",
@@ -574,10 +621,388 @@
           }
         }
       }
+    },
+    "/groups/{group_id}/links": {
+      "post": {
+        "summary": "Create Link",
+        "operationId": "create_link_groups__group_id__links_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Links",
+        "operationId": "list_links_groups__group_id__links_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LinkOut"
+                  },
+                  "title": "Response List Links Groups  Group Id  Links Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_id}/links/{link_id}": {
+      "delete": {
+        "summary": "Revoke Link",
+        "operationId": "revoke_link_groups__group_id__links__link_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Link Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}": {
+      "get": {
+        "summary": "Preview Link",
+        "description": "What the link is for, before signing in: the group's name and who sent it.",
+        "operationId": "preview_link_links__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/accept": {
+      "post": {
+        "summary": "Accept Invite",
+        "description": "Join the group with some of your own people (yourself, your kids).",
+        "operationId": "accept_invite_links__token__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links/{token}/view": {
+      "get": {
+        "summary": "Shared View",
+        "description": "Read-only plan for a view link: first names and dates, no account needed.",
+        "operationId": "shared_view_links__token__view_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End"
+            }
+          },
+          {
+            "name": "min_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 31,
+              "minimum": 2,
+              "default": 3,
+              "title": "Min Days"
+            }
+          },
+          {
+            "name": "max_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 31,
+              "minimum": 2,
+              "default": 16,
+              "title": "Max Days"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "best_value",
+                "longest"
+              ],
+              "type": "string",
+              "default": "best_value",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "distinct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Distinct"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedViewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcceptIn": {
+        "properties": {
+          "person_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Person Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_ids"
+        ],
+        "title": "AcceptIn"
+      },
       "CalendarIn": {
         "properties": {
           "name": {
@@ -737,9 +1162,17 @@
             "type": "string",
             "title": "Name"
           },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "MEMBER"
+            ],
+            "title": "Role"
+          },
           "people": {
             "items": {
-              "$ref": "#/components/schemas/PersonOut"
+              "$ref": "#/components/schemas/MemberOut"
             },
             "type": "array",
             "title": "People"
@@ -749,6 +1182,7 @@
         "required": [
           "id",
           "name",
+          "role",
           "people"
         ],
         "title": "GroupOut"
@@ -762,12 +1196,21 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "MEMBER"
+            ],
+            "title": "Role"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "name"
+          "name",
+          "role"
         ],
         "title": "GroupSummary"
       },
@@ -802,6 +1245,76 @@
           "name"
         ],
         "title": "Holiday"
+      },
+      "InvitePreview": {
+        "properties": {
+          "group_name": {
+            "type": "string",
+            "title": "Group Name"
+          },
+          "invited_by": {
+            "type": "string",
+            "title": "Invited By"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LinkKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_name",
+          "invited_by",
+          "kind"
+        ],
+        "title": "InvitePreview"
+      },
+      "LinkIn": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LinkKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "LinkIn"
+      },
+      "LinkKind": {
+        "type": "string",
+        "enum": [
+          "INVITE",
+          "VIEW"
+        ],
+        "title": "LinkKind"
+      },
+      "LinkOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LinkKind"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "expires_at",
+          "revoked"
+        ],
+        "title": "LinkOut"
       },
       "MeOut": {
         "properties": {
@@ -848,6 +1361,94 @@
           "groups"
         ],
         "title": "MeOut"
+      },
+      "MemberOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PersonKind"
+          },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine"
+          },
+          "pto_balance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Balance"
+          },
+          "work_week": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Week"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "mine",
+          "pto_balance",
+          "work_week"
+        ],
+        "title": "MemberOut",
+        "description": "A person in a group. Balance and work week are None unless they're yours."
+      },
+      "NewLinkOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LinkKind"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "expires_at",
+          "revoked",
+          "token"
+        ],
+        "title": "NewLinkOut"
       },
       "PTOBlockIn": {
         "properties": {
@@ -1048,6 +1649,31 @@
           "message"
         ],
         "title": "SearchOut"
+      },
+      "SharedViewOut": {
+        "properties": {
+          "group_name": {
+            "type": "string",
+            "title": "Group Name"
+          },
+          "people": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "search": {
+            "$ref": "#/components/schemas/SearchOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_name",
+          "people",
+          "search"
+        ],
+        "title": "SharedViewOut"
       },
       "SubscribeIn": {
         "properties": {
