@@ -17,6 +17,10 @@ describe("describeCost", () => {
     expect(describeCost(trip({ Pat: 4, Lee: 3 }))).toBe("9 days off · Pat 4, Lee 3 PTO");
   });
 
+  it("leaves out people who spend nothing", () => {
+    expect(describeCost(trip({ Pat: 1, Mia: 0 }))).toBe("9 days off · Pat 1 PTO");
+  });
+
   it("calls out free breaks", () => {
     expect(describeCost(trip({ Pat: 0, Kid: 0 }))).toBe("9 days off, no PTO needed");
   });

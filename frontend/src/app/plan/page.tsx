@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
+import AddKid from "@/components/AddKid";
 import { ErrorNote } from "@/components/ProfileForm";
 import SharePanel from "@/components/SharePanel";
 import WindowList from "@/components/WindowList";
@@ -213,6 +214,7 @@ function Plan() {
                 </li>
               ))}
             </ul>
+            <AddKid groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
             {group.role === "OWNER" && <SharePanel groupId={group.id} />}
           </div>
         </section>

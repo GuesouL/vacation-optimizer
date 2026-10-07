@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * List Calendars
-         * @description Shared calendars plus this account's own.
+         * @description Shared calendars plus this account's own. `?kind=SCHOOL` lists school districts.
          */
         get: operations["list_calendars_calendars_get"];
         put?: never;
@@ -182,6 +182,26 @@ export interface paths {
         get: operations["get_group_groups__group_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{group_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Members
+         * @description Bring more of your own people (a kid, a partner) into a group you're in.
+         */
+        post: operations["add_members_groups__group_id__members_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -329,6 +349,11 @@ export interface components {
     schemas: {
         /** AcceptIn */
         AcceptIn: {
+            /** Person Ids */
+            person_ids: number[];
+        };
+        /** AddMembersIn */
+        AddMembersIn: {
             /** Person Ids */
             person_ids: number[];
         };
@@ -837,7 +862,9 @@ export interface operations {
     };
     list_calendars_calendars_get: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: components["schemas"]["CalendarKind"] | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -851,6 +878,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -966,6 +1002,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_members_groups__group_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMembersIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
