@@ -10,13 +10,14 @@ from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
-from . import orm, sharing, trips
+from . import orm, schedule, sharing, trips
 from .access import (
     can_see_group,
     manages,
     my_group,
     my_person,
     not_found,
+    owned_calendar,
     role_in,
     usable_calendar,
 )
@@ -173,12 +174,7 @@ def create_calendar(body: CalendarIn, account: CurrentAccount, session: DB) -> C
 
 @app.post("/calendars/{calendar_id}/events", status_code=201)
 def add_event(calendar_id: int, body: EventIn, account: CurrentAccount, session: DB) -> EventOut:
-    calendar = usable_calendar(session, account, calendar_id)
-    if calendar.kind is orm.CalendarKind.FEDERAL:
-        raise HTTPException(400, "Federal holidays are computed, not stored")
-    if calendar.owner_account_id != account.id:
-        # Shared calendars are read-only here; everyone relies on them.
-        raise HTTPException(403, "Only the calendar's owner can add events")
+    owned_calendar(session, account, calendar_id)
     event = orm.CalendarEvent(calendar_id=calendar_id, **body.model_dump())
     session.add(event)
     session.commit()
@@ -265,3 +261,4 @@ def optimize(
 
 app.include_router(sharing.router)
 app.include_router(trips.router)
+app.include_router(schedule.router)

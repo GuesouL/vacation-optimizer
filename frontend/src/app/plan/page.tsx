@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import AddKid from "@/components/AddKid";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
+import ScheduleEditor from "@/components/ScheduleEditor";
 import SharePanel from "@/components/SharePanel";
 import WindowList from "@/components/WindowList";
 import YearCalendar from "@/components/YearCalendar";
@@ -44,6 +45,7 @@ function Plan() {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [editing, setEditing] = useState<number | null>(null); // whose schedule is open
   const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
 
   // ?group=12 picks a group; otherwise your first one.
@@ -223,22 +225,49 @@ function Plan() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Who&apos;s going</h2>
             <ul className="mt-2 space-y-1 text-sm">
               {group.people.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-2">
-                  <span>
-                    {p.name}
-                    {p.mine && (
-                      <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
-                    )}
-                  </span>
-                  {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
-                    <button onClick={() => remove(p.id)} className="text-xs text-zinc-500 underline">
-                      {p.mine ? "Take out" : "Remove"}
-                    </button>
+                <li key={p.id}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      {p.name}
+                      {p.mine && (
+                        <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
+                      )}
+                    </span>
+                    <span className="flex gap-3">
+                      {p.mine && (
+                        <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-teal-700 underline dark:text-teal-400">
+                          Schedule
+                        </button>
+                      )}
+                      {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
+                        <button onClick={() => remove(p.id)} className="text-xs text-zinc-500 underline">
+                          {p.mine ? "Take out" : "Remove"}
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  {editing === p.id && (
+                    <ScheduleEditor
+                      person={p}
+                      onChanged={() => setVersion((v) => v + 1)} // new dates change every suggestion: re-rank
+                      onClose={() => setEditing(null)}
+                    />
                   )}
                 </li>
               ))}
             </ul>
-            <AddKid groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
+            <AddKid
+              groupId={group.id}
+              onAdded={(kidId, enterSchedule) => {
+                setVersion((v) => v + 1);
+                if (enterSchedule) setEditing(kidId); // their school isn't listed: type its dates in next
+              }}
+            />
+            {solo && (
+              <p className="mt-2 text-xs text-zinc-500">
+                Use Schedule next to a name for school breaks, games, or dates you can&apos;t take off.
+              </p>
+            )}
             {group.role === "OWNER" && <SharePanel groupId={group.id} />}
           </div>
         </section>

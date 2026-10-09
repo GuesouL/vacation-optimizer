@@ -131,6 +131,43 @@ class EventOut(ORMModel):
     effect: Effect
 
 
+class BulkEventsIn(BaseModel):
+    events: list[EventIn] = Field(min_length=1, max_length=500)
+
+
+class PersonCalendarOut(CalendarOut):
+    mine: bool  # you own it, so you can edit its dates
+    enabled: bool
+
+
+class IcsIn(BaseModel):
+    text: str = Field(max_length=1_000_000, description="The contents of the .ics file")
+    kind: CalendarKind  # what the calendar is for; steers which events are suggested
+
+    @model_validator(mode="after")
+    def not_federal(self):
+        if self.kind is CalendarKind.FEDERAL:
+            raise ValueError("federal holidays are computed, not imported")
+        return self
+
+
+class IcsEventOut(BaseModel):
+    title: str
+    start_date: date
+    end_date: date  # inclusive
+    effect: Effect  # suggested
+    selected: bool  # ticked by default
+    timed: bool  # had a time of day (a game or practice)
+
+
+class IcsPreviewOut(BaseModel):
+    events: list[IcsEventOut]
+    skipped_recurring: int
+    skipped_too_long: int
+    skipped_invalid: int
+    truncated: bool
+
+
 class SubscribeIn(BaseModel):
     calendar_id: int
     excluded_titles: list[str] = []

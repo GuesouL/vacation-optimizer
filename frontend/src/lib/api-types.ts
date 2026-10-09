@@ -86,7 +86,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Person Calendars
+         * @description The calendars switched on for someone you manage. Another account's private
+         *     calendar (a partner's, say) isn't listed: only shared ones and yours are.
+         */
+        get: operations["person_calendars_people__person_id__calendars_get"];
         put?: never;
         /**
          * Subscribe
@@ -144,7 +149,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Events */
+        get: operations["list_events_calendars__calendar_id__events_get"];
         put?: never;
         /** Add Event */
         post: operations["add_event_calendars__calendar_id__events_post"];
@@ -410,6 +416,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/calendars/{calendar_id}/events/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Events
+         * @description Add many events in one go. All of them or none: one bad row saves nothing.
+         */
+        post: operations["add_events_calendars__calendar_id__events_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/{calendar_id}/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Event */
+        delete: operations["delete_event_calendars__calendar_id__events__event_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/{calendar_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Calendar
+         * @description Delete one of your calendars with all its events. People it was switched on
+         *     for just lose it (the database removes those links).
+         */
+        delete: operations["delete_calendar_calendars__calendar_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/ics-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ics Preview
+         * @description Read an .ics file and suggest events. Saves nothing: the screen shows the
+         *     suggestions, and what the user ticks is saved through /events/bulk.
+         */
+        post: operations["ics_preview_calendars_ics_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -423,6 +508,11 @@ export interface components {
         AddMembersIn: {
             /** Person Ids */
             person_ids: number[];
+        };
+        /** BulkEventsIn */
+        BulkEventsIn: {
+            /** Events */
+            events: components["schemas"]["EventIn"][];
         };
         /** CalendarIn */
         CalendarIn: {
@@ -529,6 +619,48 @@ export interface components {
             date: string;
             /** Name */
             name: string;
+        };
+        /** IcsEventOut */
+        IcsEventOut: {
+            /** Title */
+            title: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            effect: components["schemas"]["Effect"];
+            /** Selected */
+            selected: boolean;
+            /** Timed */
+            timed: boolean;
+        };
+        /** IcsIn */
+        IcsIn: {
+            /**
+             * Text
+             * @description The contents of the .ics file
+             */
+            text: string;
+            kind: components["schemas"]["CalendarKind"];
+        };
+        /** IcsPreviewOut */
+        IcsPreviewOut: {
+            /** Events */
+            events: components["schemas"]["IcsEventOut"][];
+            /** Skipped Recurring */
+            skipped_recurring: number;
+            /** Skipped Too Long */
+            skipped_too_long: number;
+            /** Skipped Invalid */
+            skipped_invalid: number;
+            /** Truncated */
+            truncated: boolean;
         };
         /** InvitePreview */
         InvitePreview: {
@@ -640,6 +772,18 @@ export interface components {
          * @enum {string}
          */
         PTOStatus: "PROPOSED" | "COMMITTED";
+        /** PersonCalendarOut */
+        PersonCalendarOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            kind: components["schemas"]["CalendarKind"];
+            /** Mine */
+            mine: boolean;
+            /** Enabled */
+            enabled: boolean;
+        };
         /** PersonIn */
         PersonIn: {
             /** Name */
@@ -923,6 +1067,37 @@ export interface operations {
             };
         };
     };
+    person_calendars_people__person_id__calendars_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonCalendarOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     subscribe_people__person_id__calendars_post: {
         parameters: {
             query?: never;
@@ -1042,6 +1217,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_calendars__calendar_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventOut"][];
                 };
             };
             /** @description Validation Error */
@@ -1606,6 +1812,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TripOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_events_calendars__calendar_id__events_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkEventsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_event_calendars__calendar_id__events__event_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: number;
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_calendar_calendars__calendar_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ics_preview_calendars_ics_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IcsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IcsPreviewOut"];
                 };
             };
             /** @description Validation Error */
