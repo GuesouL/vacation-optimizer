@@ -15,6 +15,7 @@ export type Window = components["schemas"]["WindowOut"];
 export type Search = components["schemas"]["SearchOut"];
 export type Holiday = components["schemas"]["Holiday"];
 export type Me = components["schemas"]["MeOut"];
+export type Trip = components["schemas"]["TripOut"];
 
 export const FEDERAL_CALENDAR_ID = 1; // seeded by the first database migration
 

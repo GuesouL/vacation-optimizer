@@ -147,6 +147,27 @@ class PTOBlockOut(ORMModel):
     status: PTOStatus
 
 
+class TripIn(DateRange):
+    label: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None = None
+
+    @model_validator(mode="after")
+    def not_too_long(self):
+        if (self.end_date - self.start_date).days + 1 > 31:
+            raise ValueError("a trip can be at most 31 days")
+        return self
+
+
+class TripOut(BaseModel):
+    id: int
+    start_date: date
+    end_date: date  # inclusive
+    label: str | None
+    booked_by: list[str]  # names of the people who booked PTO for it
+    can_book: bool  # you manage at least one adult in this group
+    mine_booked: bool  # every adult you manage in this group has booked it
+    can_delete: bool  # you saved it, or you own the group
+
+
 class GroupIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     person_ids: list[int] = Field(min_length=1)
