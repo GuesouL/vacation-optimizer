@@ -184,6 +184,53 @@
             }
           }
         }
+      },
+      "get": {
+        "summary": "Person Calendars",
+        "description": "The calendars switched on for someone you manage. Another account's private\ncalendar (a partner's, say) isn't listed: only shared ones and yours are.",
+        "operationId": "person_calendars_people__person_id__calendars_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonCalendarOut"
+                  },
+                  "title": "Response Person Calendars People  Person Id  Calendars Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/people/{person_id}/pto-blocks": {
@@ -374,6 +421,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Events",
+        "operationId": "list_events_calendars__calendar_id__events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventOut"
+                  },
+                  "title": "Response List Events Calendars  Calendar Id  Events Get"
                 }
               }
             }
@@ -1319,6 +1412,193 @@
           }
         }
       }
+    },
+    "/calendars/{calendar_id}/events/bulk": {
+      "post": {
+        "summary": "Add Events",
+        "description": "Add many events in one go. All of them or none: one bad row saves nothing.",
+        "operationId": "add_events_calendars__calendar_id__events_bulk_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEventsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventOut"
+                  },
+                  "title": "Response Add Events Calendars  Calendar Id  Events Bulk Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendars/{calendar_id}/events/{event_id}": {
+      "delete": {
+        "summary": "Delete Event",
+        "operationId": "delete_event_calendars__calendar_id__events__event_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Calendar Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendars/{calendar_id}": {
+      "delete": {
+        "summary": "Delete Calendar",
+        "description": "Delete one of your calendars with all its events. People it was switched on\nfor just lose it (the database removes those links).",
+        "operationId": "delete_calendar_calendars__calendar_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendars/ics-preview": {
+      "post": {
+        "summary": "Ics Preview",
+        "description": "Read an .ics file and suggest events. Saves nothing: the screen shows the\nsuggestions, and what the user ticks is saved through /events/bulk.",
+        "operationId": "ics_preview_calendars_ics_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IcsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IcsPreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1356,6 +1636,24 @@
           "person_ids"
         ],
         "title": "AddMembersIn"
+      },
+      "BulkEventsIn": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventIn"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "title": "BulkEventsIn"
       },
       "CalendarIn": {
         "properties": {
@@ -1599,6 +1897,100 @@
           "name"
         ],
         "title": "Holiday"
+      },
+      "IcsEventOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/Effect"
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected"
+          },
+          "timed": {
+            "type": "boolean",
+            "title": "Timed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "start_date",
+          "end_date",
+          "effect",
+          "selected",
+          "timed"
+        ],
+        "title": "IcsEventOut"
+      },
+      "IcsIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000000,
+            "title": "Text",
+            "description": "The contents of the .ics file"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "kind"
+        ],
+        "title": "IcsIn"
+      },
+      "IcsPreviewOut": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/IcsEventOut"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "skipped_recurring": {
+            "type": "integer",
+            "title": "Skipped Recurring"
+          },
+          "skipped_too_long": {
+            "type": "integer",
+            "title": "Skipped Too Long"
+          },
+          "skipped_invalid": {
+            "type": "integer",
+            "title": "Skipped Invalid"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "skipped_recurring",
+          "skipped_too_long",
+          "skipped_invalid",
+          "truncated"
+        ],
+        "title": "IcsPreviewOut"
       },
       "InvitePreview": {
         "properties": {
@@ -1864,6 +2256,38 @@
           "COMMITTED"
         ],
         "title": "PTOStatus"
+      },
+      "PersonCalendarOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarKind"
+          },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "mine",
+          "enabled"
+        ],
+        "title": "PersonCalendarOut"
       },
       "PersonIn": {
         "properties": {

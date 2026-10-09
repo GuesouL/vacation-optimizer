@@ -6,8 +6,11 @@ import { api, errorMessage } from "@/lib/api";
 
 type School = { id: number; name: string };
 
-/** Add a child to the group and pick their school district's calendar. */
-export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded: () => void }) {
+/** Add a child to the group and pick their school district, or enter their own school's dates. */
+
+const CUSTOM = "custom"; // the "my school isn't listed" choice
+
+export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded: (kidId: number, enterSchedule: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const [schools, setSchools] = useState<School[]>([]);
   const [name, setName] = useState("");
@@ -35,9 +38,17 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
       // Three calls: the kid, their school calendar, then into this group.
       const kid = await api.POST("/people", { body: { name: name.trim(), kind: "CHILD" } });
       if (!kid.data) throw kid.error;
+      const custom = schoolId === CUSTOM;
+      let calendarId = Number(schoolId);
+      if (custom) {
+        // Not listed: make an empty private school calendar. The schedule editor opens next.
+        const made = await api.POST("/calendars", { body: { name: `${name.trim()}'s school`, kind: "SCHOOL" } });
+        if (!made.data) throw made.error;
+        calendarId = made.data.id;
+      }
       const link = await api.POST("/people/{person_id}/calendars", {
         params: { path: { person_id: kid.data.id } },
-        body: { calendar_id: Number(schoolId) },
+        body: { calendar_id: calendarId },
       });
       if (link.error) throw link.error;
       const added = await api.POST("/groups/{group_id}/members", {
@@ -47,7 +58,7 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
       if (!added.data) throw added.error;
       setName("");
       setOpen(false);
-      onAdded();
+      onAdded(kid.data.id, custom);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -86,9 +97,12 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
           {schools.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
+          <option value={CUSTOM}>My school isn&apos;t listed (I&apos;ll enter its dates)</option>
         </select>
       </label>
-      <p className="text-xs text-zinc-500">Only NYC for now. More districts are coming.</p>
+      <p className="text-xs text-zinc-500">
+        Not listed? Pick the last choice, then type in the school breaks or import a calendar file.
+      </p>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={saving || !schoolId} className="rounded bg-teal-700 px-3 py-1.5 font-medium text-white disabled:opacity-50">
