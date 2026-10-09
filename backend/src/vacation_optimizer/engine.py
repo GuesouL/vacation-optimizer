@@ -108,6 +108,23 @@ def _affordable(years: list[PTOYear] | None, work: list[int], i: int, j: int, ca
     return total
 
 
+def booking_cost(person: Person, as_of: date, start: date, end: date) -> int | None:
+    """PTO an adult spends to book start..end (inclusive), or None if their PTO can't cover it.
+
+    Same math as the search, so a trip the plan offered can always be booked:
+    holidays and weekends are free, and a trip crossing a renewal date is paid
+    from both PTO years.
+    """
+    if start < as_of:
+        raise ValueError("can't book a trip that has already started")
+    years = pto_years(person, as_of, end)
+    if years is None:
+        raise ValueError(f"{person.name} doesn't take PTO")
+    work = _prefix_sums(timeline(person, as_of, end), DayStatus.WORK)
+    first, stop = (start - as_of).days, (end - as_of).days + 1
+    return _affordable(years, work, first, stop, person.pto_carryover_max)
+
+
 def _prefix_sums(statuses: list[DayStatus], status: DayStatus) -> list[int]:
     """sums[i] = how many of the first i days have `status`."""
     return [0, *accumulate(1 if s is status else 0 for s in statuses)]

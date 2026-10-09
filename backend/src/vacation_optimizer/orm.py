@@ -25,6 +25,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .models import Effect
@@ -160,12 +161,27 @@ class PersonCalendar(Base):
 
 class PTOBlock(Base):
     __tablename__ = "pto_block"
-    __table_args__ = (CheckConstraint("end_date >= start_date", name="pto_dates_in_order"),)
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="pto_dates_in_order"),
+        # One person can't book the same day twice: that would charge their PTO
+        # twice. The database enforces it, so no code path (or race) can slip
+        # past. PROPOSED blocks are only ideas, so they may overlap.
+        ExcludeConstraint(
+            ("person_id", "="),
+            (text("daterange(start_date, end_date, '[]')"), "&&"),
+            name="no_double_booked_pto",
+            using="gist",
+            where=text("status = 'COMMITTED'"),
+        ),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     person_id: Mapped[int] = mapped_column(ForeignKey("person.id", ondelete="CASCADE"), index=True)
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     status: Mapped[PTOStatus] = mapped_column(SAEnum(PTOStatus, name="pto_status"))
+    # Set when this booking is someone's share of a group trip. Deleting the
+    # trip deletes the bookings with it.
+    trip_id: Mapped[int | None] = mapped_column(ForeignKey("trip.id", ondelete="CASCADE"), index=True)
 
 
 class Group(Base):
@@ -178,6 +194,25 @@ class Group(Base):
     owner_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"), index=True)
 
     members: Mapped[list["GroupMember"]] = relationship(cascade="all, delete-orphan")
+
+
+class Trip(Base):
+    """Dates a group saved from the plan. A saved trip is just an idea until people
+    book it: each adult's booking is their own COMMITTED pto_block pointing here."""
+
+    __tablename__ = "trip"
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="trip_dates_in_order"),
+        UniqueConstraint("group_id", "start_date", "end_date", name="one_trip_per_dates"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("trip_group.id", ondelete="CASCADE"), index=True)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)  # inclusive
+    label: Mapped[str | None] = mapped_column(String(100))
+    created_by_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id", ondelete="SET NULL"))
+
+    bookings: Mapped[list[PTOBlock]] = relationship(passive_deletes=True)
 
 
 class GroupMember(Base):

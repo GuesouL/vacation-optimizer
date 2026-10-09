@@ -6,10 +6,11 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import AddKid from "@/components/AddKid";
 import { ErrorNote } from "@/components/ProfileForm";
+import SavedTrips from "@/components/SavedTrips";
 import SharePanel from "@/components/SharePanel";
 import WindowList from "@/components/WindowList";
 import YearCalendar from "@/components/YearCalendar";
-import { api, apiToken, errorMessage, type Group, type Me, type Search, type Window } from "@/lib/api";
+import { api, apiToken, errorMessage, type Group, type Me, type Search, type Trip, type Window } from "@/lib/api";
 import { describeCost } from "@/lib/costs";
 import { addDays, type ISODate, today } from "@/lib/dates";
 
@@ -42,6 +43,8 @@ function Plan() {
   const [selected, setSelected] = useState<Window | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
 
   // ?group=12 picks a group; otherwise your first one.
   const groupId = Number(params.get("group")) || me?.groups[0]?.id;
@@ -92,6 +95,18 @@ function Plan() {
       })
       .catch((err) => setError(errorMessage(err)));
   }, [group, start, end, sort]);
+
+  // Saved trips. They're re-read when the group reloads (after a booking) or one is saved.
+  useEffect(() => {
+    if (!group) return;
+    api
+      .GET("/groups/{group_id}/trips", { params: { path: { group_id: group.id } } })
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        setTrips(data);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [group, tripsVersion]);
 
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
@@ -175,6 +190,15 @@ function Plan() {
             ))}
           </div>
 
+          {/* Up top, so the Save button sits next to the suggestion you just picked. */}
+          <SavedTrips
+            groupId={group.id}
+            trips={trips}
+            selected={selected}
+            onSaved={() => setTripsVersion((v) => v + 1)}
+            onPtoChanged={() => setVersion((v) => v + 1)} // booked days change every cost: re-rank
+          />
+
           <WindowList
             title="Ranked suggestions"
             empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
@@ -220,11 +244,12 @@ function Plan() {
         </section>
 
         <section aria-label="Year calendar">
-          <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} />
+          <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} />
           <p className="mt-4 flex flex-wrap gap-4 text-xs text-zinc-500">
             <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Holiday</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-600 align-middle" />Selected trip</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />Your PTO day</span>
+            <span><span className="mr-1 inline-block h-3 w-3 rounded ring-1 ring-inset ring-teal-600 align-middle" />Saved trip</span>
           </p>
         </section>
       </div>

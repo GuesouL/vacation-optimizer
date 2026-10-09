@@ -13,13 +13,14 @@ type Props = {
   holidays: Map<ISODate, string>;
   workWeek: number[];
   selected: { start: ISODate; end: ISODate } | null;
+  saved?: { start_date: ISODate; end_date: ISODate }[];
 };
 
 const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
-/** Twelve mini months. Holidays are marked, and the selected trip is shaded. */
-export default function YearCalendar({ start, holidays, workWeek, selected }: Props) {
+/** Twelve mini months. Holidays are marked, the selected trip is shaded, and saved trips are outlined. */
+export default function YearCalendar({ start, holidays, workWeek, selected, saved = [] }: Props) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {next12Months(start).map(({ year, month }) => (
@@ -34,6 +35,7 @@ export default function YearCalendar({ start, holidays, workWeek, selected }: Pr
               const holiday = holidays.get(day);
               const dayOff = !workWeek.includes(i % 7) || holiday;
               const inTrip = selected && isBetween(day, selected.start, selected.end);
+              const inSaved = saved.some((t) => isBetween(day, t.start_date, t.end_date));
               return (
                 <div
                   key={day}
@@ -43,6 +45,7 @@ export default function YearCalendar({ start, holidays, workWeek, selected }: Pr
                     inTrip
                       ? dayOff ? "bg-teal-600 text-white" : "bg-teal-800 font-semibold text-white"
                       : dayOff ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400" : "",
+                    inSaved ? "ring-1 ring-inset ring-teal-600" : "",
                     day < start ? "opacity-30" : "",
                   ].join(" ")}
                 >

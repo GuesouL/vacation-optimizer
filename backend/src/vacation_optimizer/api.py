@@ -8,8 +8,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 
-from . import orm, sharing
+from . import orm, sharing, trips
 from .access import (
     can_see_group,
     manages,
@@ -137,7 +138,13 @@ def add_pto_block(
     my_person(session, account, person_id)
     block = orm.PTOBlock(person_id=person_id, **body.model_dump())
     session.add(block)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        if trips.is_double_booking(error):
+            raise HTTPException(409, "PTO is already booked on some of these days") from None
+        raise
     return block
 
 
@@ -257,3 +264,4 @@ def optimize(
 
 
 app.include_router(sharing.router)
+app.include_router(trips.router)
