@@ -8,9 +8,20 @@ from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+
+def normalize_database_url(url: str) -> str:
+    """Hosting sites hand out `postgres://...` or `postgresql://...`. SQLAlchemy reads
+    both as "use some default driver", and `postgres://` isn't understood at all, so
+    name the driver we actually install (psycopg 3) and leave everything else alone."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url.removeprefix(prefix)
+    return url
+
+
 # Read from the environment so dev, test and production each point at their own database.
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql+psycopg://vacation:vacation@localhost:5432/vacation"
+DATABASE_URL = normalize_database_url(
+    os.environ.get("DATABASE_URL", "postgresql+psycopg://vacation:vacation@localhost:5432/vacation")
 )
 
 engine = create_engine(DATABASE_URL)
