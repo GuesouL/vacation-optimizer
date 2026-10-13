@@ -10,6 +10,26 @@ export type Profile = {
   renewal: Renewal | null; // null: plan the whole year with today's balance
 };
 
+/** What `PUT /people/{id}` takes. Leaving the renewal out clears it on the server. */
+export function updateBody(profile: Profile) {
+  return {
+    name: profile.name,
+    pto_balance: profile.ptoBalance,
+    work_week: profile.workWeek,
+    ...(profile.renewal && {
+      pto_allowance: profile.renewal.allowance,
+      pto_renews_on: { month: profile.renewal.month, day: profile.renewal.day },
+      pto_carryover_max: profile.renewal.carryoverMax,
+    }),
+  };
+}
+
+/** The header line: days left, and why it differs from the balance you typed. */
+export function describePtoLeft(left: number, balance: number | null): string {
+  const days = `${left} PTO ${left === 1 ? "day" : "days"} left`;
+  return balance != null && left !== balance ? `${days} after booked trips` : days;
+}
+
 /**
  * Your own person record, created once. If an earlier try stopped halfway,
  * the existing one is reused instead of failing with "already exists".

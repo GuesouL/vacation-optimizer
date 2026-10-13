@@ -80,6 +80,37 @@ class PersonIn(BaseModel):
         return fields
 
 
+class PersonUpdate(BaseModel):
+    """Everything about a person that can change after setup. Replaces the old values:
+    leaving the renewal fields out clears them. Who they are (adult or child, and
+    whether it's you) stays fixed."""
+
+    name: Name
+    pto_balance: int | None = Field(default=None, ge=0)
+    work_week: list[int] = Field(default=[0, 1, 2, 3, 4], description="Mon=0 ... Sun=6")
+    pto_allowance: int | None = Field(default=None, ge=0, le=365)
+    pto_renews_on: RenewsOn | None = None
+    pto_carryover_max: int | None = Field(default=None, ge=0, le=365)
+
+    @model_validator(mode="after")
+    def check_update(self):
+        if any(day not in range(7) for day in self.work_week):
+            raise ValueError("work_week days must be 0 (Mon) through 6 (Sun)")
+        renewal_fields = (self.pto_allowance, self.pto_renews_on, self.pto_carryover_max)
+        if self.pto_balance is None and any(f is not None for f in renewal_fields):
+            raise ValueError("PTO renewal settings need a pto_balance")
+        return self
+
+    def columns(self) -> dict:
+        """Database columns, with the renewal pair always written so omitting it clears it."""
+        fields = self.model_dump(exclude={"pto_renews_on"})
+        renews = self.pto_renews_on
+        return fields | {
+            "pto_renewal_month": renews.month if renews else None,
+            "pto_renewal_day": renews.day if renews else None,
+        }
+
+
 class PersonOut(ORMModel):
     id: int
     name: str
@@ -234,6 +265,7 @@ class MemberOut(BaseModel):
     mine: bool
     pto_balance: int | None
     work_week: list[int] | None
+    pto_left: int | None  # mine only: the balance after trips already booked
 
 
 class GroupOut(BaseModel):

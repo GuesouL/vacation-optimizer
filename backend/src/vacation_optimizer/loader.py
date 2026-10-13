@@ -5,7 +5,7 @@ between a new part and an old connector.
 """
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
@@ -78,3 +78,14 @@ def to_engine_person(
             if b.status is orm.PTOStatus.COMMITTED
         ],
     )
+
+
+def remaining_pto(session: Session, row: orm.Person, today: date) -> int | None:
+    """PTO a person has left until their next renewal, after trips they've booked.
+
+    Looks ahead 400 days, enough to reach any renewal date, so a booked trip that
+    covers a holiday isn't charged for it."""
+    end = today + timedelta(days=400)
+    calendar_ids = {link.calendar_id for link in row.calendars}
+    events = events_in_range(session, calendar_ids, today, end)
+    return to_engine_person(row, today, end, events).remaining_pto(today)

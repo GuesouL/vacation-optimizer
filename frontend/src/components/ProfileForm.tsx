@@ -3,28 +3,34 @@
 import { type FormEvent, useState } from "react";
 
 import { errorMessage } from "@/lib/api";
-import type { Profile } from "@/lib/profile";
+import type { Profile, Renewal } from "@/lib/profile";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const inputClass =
   "mt-1 block w-24 rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
 
-/** Name, PTO, work week and holidays. Used by onboarding and by the join page. */
+/**
+ * Name, PTO, work week and holidays. Used by onboarding, the join page and Settings.
+ * Settings passes `current` to start from what's saved, and hides the holidays
+ * question (that's a calendar choice, not a personal detail).
+ */
 export default function ProfileForm(props: {
+  current?: { ptoBalance: number; workWeek: number[]; renewal: Renewal | null };
   initialName: string;
   submitLabel: string;
   savingLabel: string;
   onSubmit: (profile: Profile) => Promise<void>;
 }) {
   const [name, setName] = useState(props.initialName);
-  const [pto, setPto] = useState("10");
-  const [workWeek, setWorkWeek] = useState([0, 1, 2, 3, 4]);
+  const { current } = props;
+  const [pto, setPto] = useState(String(current?.ptoBalance ?? 10));
+  const [workWeek, setWorkWeek] = useState(current?.workWeek ?? [0, 1, 2, 3, 4]);
   const [federal, setFederal] = useState(true);
-  const [allowance, setAllowance] = useState(""); // blank = skip renewal
-  const [renewMonth, setRenewMonth] = useState("1");
-  const [renewDay, setRenewDay] = useState("1");
-  const [carryover, setCarryover] = useState("0");
+  const [allowance, setAllowance] = useState(current?.renewal ? String(current.renewal.allowance) : ""); // blank = skip renewal
+  const [renewMonth, setRenewMonth] = useState(String(current?.renewal?.month ?? 1));
+  const [renewDay, setRenewDay] = useState(String(current?.renewal?.day ?? 1));
+  const [carryover, setCarryover] = useState(String(current?.renewal?.carryoverMax ?? 0));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +84,11 @@ export default function ProfileForm(props: {
           onChange={(e) => setPto(e.target.value)}
           className="mt-1 block w-32 rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
         />
+        {current && (
+          <span className="mt-1 block text-xs text-zinc-500">
+            Count the days you have today. Trips you&apos;ve booked in the app are taken off automatically.
+          </span>
+        )}
       </label>
 
       <fieldset>
@@ -104,12 +115,14 @@ export default function ProfileForm(props: {
         </div>
       </fieldset>
 
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={federal} onChange={(e) => setFederal(e.target.checked)} />
-        <span className="text-sm">I get the US federal holidays off</span>
-      </label>
+      {!current && (
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={federal} onChange={(e) => setFederal(e.target.checked)} />
+          <span className="text-sm">I get the US federal holidays off</span>
+        </label>
+      )}
 
-      <details className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <details open={!!current?.renewal} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
         <summary className="cursor-pointer text-sm font-medium">
           When does your PTO renew? <span className="font-normal text-zinc-500">(optional)</span>
         </summary>
