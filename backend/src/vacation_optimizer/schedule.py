@@ -7,14 +7,24 @@ missing pieces around the create calls in api.py: see, delete and bulk-add event
 and turn an .ics file into suggestions to review.
 """
 
+from datetime import date, timedelta
+
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from . import orm
-from .access import my_person, not_found, owned_calendar, usable_calendar
+from .access import (
+    can_see_group,
+    manages,
+    my_person,
+    not_found,
+    owned_calendar,
+    usable_calendar,
+)
 from .auth import CurrentAccount
 from .db import DB
 from .ics import parse_ics
+from .loader import events_in_range
 from .schemas import (
     BulkEventsIn,
     EventOut,
@@ -22,7 +32,10 @@ from .schemas import (
     IcsIn,
     IcsPreviewOut,
     PersonCalendarOut,
+    PersonScheduleOut,
+    ScheduleItemOut,
 )
+from .search import MAX_SEARCH_DAYS, load_group
 
 router = APIRouter()
 
@@ -103,3 +116,49 @@ def ics_preview(body: IcsIn, account: CurrentAccount) -> IcsPreviewOut:
         skipped_invalid=result.skipped_invalid,
         truncated=result.truncated,
     )
+
+
+@router.get("/groups/{group_id}/schedule")
+def group_schedule(
+    group_id: int, start: date, end: date, account: CurrentAccount, session: DB
+) -> list[PersonScheduleOut]:
+    """The school breaks, games and blackout dates of the people YOU manage in this group,
+    so the calendar can draw them. Other families' people are left out entirely: they
+    share a name and whether a trip works, never their schedule.
+
+    Federal holidays aren't included (the page already draws them). Everything else
+    follows the same rules the search uses: only calendars switched on for the person,
+    and not the holidays they've said their job skips.
+    """
+    if end < start:
+        raise HTTPException(422, "end must be on or after start")
+    if end - start > timedelta(days=MAX_SEARCH_DAYS):
+        raise HTTPException(422, f"Look at most {MAX_SEARCH_DAYS} days at a time")
+    group = load_group(session, group_id)
+    if group is None or not can_see_group(account, group):
+        raise not_found(orm.Group, group_id)
+
+    mine = [m.person for m in group.members if manages(account, m.person)]
+    links = {
+        p.id: [l for l in p.calendars if l.enabled and l.calendar.kind is not orm.CalendarKind.FEDERAL]
+        for p in mine
+    }
+    calendar_ids = {l.calendar_id for person_links in links.values() for l in person_links}
+    events = events_in_range(session, calendar_ids, start, end) if calendar_ids else {}
+
+    out = []
+    for person in mine:
+        # The engine applies a person's skipped titles to all of their calendars, so do the same.
+        skipped = {t for l in links[person.id] for t in l.excluded_titles}
+        items = [
+            ScheduleItemOut(
+                title=e.title, start_date=e.start_date, end_date=e.end_date,
+                effect=e.effect, kind=l.calendar.kind,
+            )
+            for l in links[person.id]
+            for e in events.get(l.calendar_id, [])
+            if e.title not in skipped
+        ]
+        items.sort(key=lambda i: (i.start_date, i.end_date, i.title))
+        out.append(PersonScheduleOut(person_id=person.id, name=person.name, kind=person.kind, items=items))
+    return out

@@ -19,6 +19,7 @@ export type Trip = components["schemas"]["TripOut"];
 export type CalendarInfo = components["schemas"]["PersonCalendarOut"];
 export type CalendarEvent = components["schemas"]["EventOut"];
 export type IcsPreview = components["schemas"]["IcsPreviewOut"];
+export type PersonSchedule = components["schemas"]["PersonScheduleOut"];
 export type EventDraft = components["schemas"]["EventIn"];
 
 export const FEDERAL_CALENDAR_ID = 1; // seeded by the first database migration

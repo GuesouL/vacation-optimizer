@@ -168,6 +168,21 @@ class IcsPreviewOut(BaseModel):
     truncated: bool
 
 
+class ScheduleItemOut(BaseModel):
+    title: str
+    start_date: date
+    end_date: date  # inclusive
+    effect: Effect
+    kind: CalendarKind  # which kind of calendar it came from ("No school" vs "Day off")
+
+
+class PersonScheduleOut(BaseModel):
+    person_id: int
+    name: str
+    kind: PersonKind
+    items: list[ScheduleItemOut]
+
+
 class SubscribeIn(BaseModel):
     calendar_id: int
     excluded_titles: list[str] = []

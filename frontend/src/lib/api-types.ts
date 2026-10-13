@@ -495,6 +495,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/groups/{group_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Group Schedule
+         * @description The school breaks, games and blackout dates of the people YOU manage in this group,
+         *     so the calendar can draw them. Other families' people are left out entirely: they
+         *     share a name and whether a trip works, never their schedule.
+         *
+         *     Federal holidays aren't included (the page already draws them). Everything else
+         *     follows the same rules the search uses: only calendars switched on for the person,
+         *     and not the holidays they've said their job skips.
+         */
+        get: operations["group_schedule_groups__group_id__schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -844,12 +870,39 @@ export interface components {
             /** Pto Carryover Max */
             pto_carryover_max: number | null;
         };
+        /** PersonScheduleOut */
+        PersonScheduleOut: {
+            /** Person Id */
+            person_id: number;
+            /** Name */
+            name: string;
+            kind: components["schemas"]["PersonKind"];
+            /** Items */
+            items: components["schemas"]["ScheduleItemOut"][];
+        };
         /** RenewsOn */
         RenewsOn: {
             /** Month */
             month: number;
             /** Day */
             day: number;
+        };
+        /** ScheduleItemOut */
+        ScheduleItemOut: {
+            /** Title */
+            title: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            effect: components["schemas"]["Effect"];
+            kind: components["schemas"]["CalendarKind"];
         };
         /** SearchOut */
         SearchOut: {
@@ -1939,6 +1992,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IcsPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    group_schedule_groups__group_id__schedule_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonScheduleOut"][];
                 };
             };
             /** @description Validation Error */
