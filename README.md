@@ -42,6 +42,9 @@ When you change the API, refresh the shared contract so the front end's types ma
 `cd backend && uv run python scripts/export_openapi.py && cd ../frontend && npm run gen:api`.
 CI fails if you forget.
 
+## Put it online
+See [docs/deploy.md](docs/deploy.md): Neon (database), Render (API container), Vercel (site).
+
 ## Sign-in
 Auth.js (in `frontend/src/auth.ts`) signs people in with Google, or with any
 email when `AUTH_DEV_LOGIN=true` in development. It then mints a 15-minute token
