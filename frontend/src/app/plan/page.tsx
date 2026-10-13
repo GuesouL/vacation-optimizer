@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
+import AddAdult from "@/components/AddAdult";
 import AddKid from "@/components/AddKid";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
@@ -277,6 +278,11 @@ function Plan() {
                           Show
                         </label>
                       ) : null}
+                      {p.mine && p.kind === "ADULT" && (
+                        <Link href={`/settings?person=${p.id}`} className="text-xs text-teal-700 underline dark:text-teal-400">
+                          Edit
+                        </Link>
+                      )}
                       {p.mine && (
                         <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-teal-700 underline dark:text-teal-400">
                           Schedule
@@ -306,6 +312,7 @@ function Plan() {
                 if (enterSchedule) setEditing(kidId); // their school isn't listed: type its dates in next
               }}
             />
+            <AddAdult groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
             {solo && (
               <p className="mt-2 text-xs text-zinc-500">
                 Use Schedule next to a name for school breaks, games, or dates you can&apos;t take off.

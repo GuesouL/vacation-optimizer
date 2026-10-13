@@ -16,6 +16,7 @@ const inputClass =
  * question (that's a calendar choice, not a personal detail).
  */
 export default function ProfileForm(props: {
+  nameLabel?: string; // "Your first name" unless this form is about someone else
   current?: { ptoBalance: number; workWeek: number[]; renewal: Renewal | null };
   initialName: string;
   submitLabel: string;
@@ -63,7 +64,7 @@ export default function ProfileForm(props: {
   return (
     <form onSubmit={submit} className="mt-8 space-y-6">
       <label className="block">
-        <span className="text-sm font-medium">Your first name</span>
+        <span className="text-sm font-medium">{props.nameLabel ?? "Your first name"}</span>
         <input
           required
           maxLength={100}
