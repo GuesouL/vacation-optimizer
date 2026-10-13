@@ -11,9 +11,11 @@ import ScheduleEditor from "@/components/ScheduleEditor";
 import SharePanel from "@/components/SharePanel";
 import WindowList from "@/components/WindowList";
 import YearCalendar from "@/components/YearCalendar";
-import { api, apiToken, errorMessage, type Group, type Me, type Search, type Trip, type Window } from "@/lib/api";
+import { api, apiToken, errorMessage, type Group, type Me, type PersonSchedule, type Search, type Trip, type Window } from "@/lib/api";
 import { describeCost } from "@/lib/costs";
 import { addDays, type ISODate, today } from "@/lib/dates";
+import { loadHidden, saveHidden } from "@/lib/preferences";
+import { buildDayMarks } from "@/lib/schedule";
 
 type Sort = "best_value" | "longest";
 
@@ -46,6 +48,8 @@ function Plan() {
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
   const [trips, setTrips] = useState<Trip[]>([]);
   const [editing, setEditing] = useState<number | null>(null); // whose schedule is open
+  const [schedules, setSchedules] = useState<PersonSchedule[]>([]); // dates of the people you manage
+  const [hidden, setHidden] = useState<number[]>(loadHidden); // people whose dates you chose not to draw
   const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
 
   // ?group=12 picks a group; otherwise your first one.
@@ -109,6 +113,29 @@ function Plan() {
       })
       .catch((err) => setError(errorMessage(err)));
   }, [group, tripsVersion]);
+
+  // School breaks and busy days for your own people. Re-read whenever the group reloads.
+  useEffect(() => {
+    if (!group) return;
+    api
+      .GET("/groups/{group_id}/schedule", { params: { path: { group_id: group.id }, query: { start, end } } })
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        setSchedules(data);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [group, start, end]);
+
+  const marks = useMemo(
+    () => buildDayMarks(schedules.filter((s) => !hidden.includes(s.person_id)), start, end),
+    [schedules, hidden, start, end],
+  );
+
+  function toggleDates(personId: number, show: boolean) {
+    const next = show ? hidden.filter((id) => id !== personId) : [...hidden, personId];
+    setHidden(next);
+    saveHidden(next);
+  }
 
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
@@ -233,7 +260,18 @@ function Plan() {
                         <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
                       )}
                     </span>
-                    <span className="flex gap-3">
+                    <span className="flex items-center gap-3">
+                      {schedules.find((s) => s.person_id === p.id)?.items.length ? (
+                        <label className="flex items-center gap-1 text-xs text-zinc-500">
+                          <input
+                            type="checkbox"
+                            checked={!hidden.includes(p.id)}
+                            onChange={(e) => toggleDates(p.id, e.target.checked)}
+                            aria-label={`Show ${p.name}'s dates on the calendar`}
+                          />
+                          Show
+                        </label>
+                      ) : null}
                       {p.mine && (
                         <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-teal-700 underline dark:text-teal-400">
                           Schedule
@@ -273,12 +311,18 @@ function Plan() {
         </section>
 
         <section aria-label="Year calendar">
-          <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} />
+          <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} marks={marks} />
           <p className="mt-4 flex flex-wrap gap-4 text-xs text-zinc-500">
             <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Holiday</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-600 align-middle" />Selected trip</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />Your PTO day</span>
             <span><span className="mr-1 inline-block h-3 w-3 rounded ring-1 ring-inset ring-teal-600 align-middle" />Saved trip</span>
+            {marks.size > 0 && (
+              <>
+                <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-sky-500 align-middle" />School break or day off</span>
+                <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-rose-500 align-middle" />Busy</span>
+              </>
+            )}
           </p>
         </section>
       </div>

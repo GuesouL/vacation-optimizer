@@ -1599,6 +1599,75 @@
           }
         ]
       }
+    },
+    "/groups/{group_id}/schedule": {
+      "get": {
+        "summary": "Group Schedule",
+        "description": "The school breaks, games and blackout dates of the people YOU manage in this group,\nso the calendar can draw them. Other families' people are left out entirely: they\nshare a name and whether a trip works, never their schedule.\n\nFederal holidays aren't included (the page already draws them). Everything else\nfollows the same rules the search uses: only calendars switched on for the person,\nand not the holidays they've said their job skips.",
+        "operationId": "group_schedule_groups__group_id__schedule_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonScheduleOut"
+                  },
+                  "title": "Response Group Schedule Groups  Group Id  Schedule Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2466,6 +2535,36 @@
         ],
         "title": "PersonOut"
       },
+      "PersonScheduleOut": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PersonKind"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "kind",
+          "items"
+        ],
+        "title": "PersonScheduleOut"
+      },
       "RenewsOn": {
         "properties": {
           "month": {
@@ -2487,6 +2586,39 @@
           "day"
         ],
         "title": "RenewsOn"
+      },
+      "ScheduleItemOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/Effect"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "start_date",
+          "end_date",
+          "effect",
+          "kind"
+        ],
+        "title": "ScheduleItemOut"
       },
       "SearchOut": {
         "properties": {

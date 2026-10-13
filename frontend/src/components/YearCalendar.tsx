@@ -1,5 +1,6 @@
 "use client";
 
+import type { DayMark } from "@/lib/schedule";
 import {
   formatDate,
   isBetween,
@@ -14,13 +15,17 @@ type Props = {
   workWeek: number[];
   selected: { start: ISODate; end: ISODate } | null;
   saved?: { start_date: ISODate; end_date: ISODate }[];
+  marks?: Map<ISODate, DayMark>; // school breaks and busy days to draw, by day
 };
 
 const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
-/** Twelve mini months. Holidays are marked, the selected trip is shaded, and saved trips are outlined. */
-export default function YearCalendar({ start, holidays, workWeek, selected, saved = [] }: Props) {
+/**
+ * Twelve mini months. Holidays are marked, the selected trip is shaded, saved trips are
+ * outlined, and school breaks (blue) and busy days (red) show as a bar along the top.
+ */
+export default function YearCalendar({ start, holidays, workWeek, selected, saved = [], marks }: Props) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {next12Months(start).map(({ year, month }) => (
@@ -36,10 +41,12 @@ export default function YearCalendar({ start, holidays, workWeek, selected, save
               const dayOff = !workWeek.includes(i % 7) || holiday;
               const inTrip = selected && isBetween(day, selected.start, selected.end);
               const inSaved = saved.some((t) => isBetween(day, t.start_date, t.end_date));
+              const mark = marks?.get(day);
+              const tooltip = [holiday ? `${formatDate(day)}: ${holiday}` : formatDate(day), ...(mark?.off ?? []), ...(mark?.busy ?? [])];
               return (
                 <div
                   key={day}
-                  title={holiday ? `${formatDate(day)}: ${holiday}` : formatDate(day)}
+                  title={tooltip.join("\n")}
                   className={[
                     "relative rounded py-1 tabular-nums",
                     inTrip
@@ -50,6 +57,12 @@ export default function YearCalendar({ start, holidays, workWeek, selected, save
                   ].join(" ")}
                 >
                   {Number(day.slice(8))}
+                  {mark && (
+                    <span className="absolute inset-x-1 top-0 flex h-1 gap-px">
+                      {mark.off.length > 0 && <span className="flex-1 rounded-full bg-sky-500 ring-1 ring-white/80" />}
+                      {mark.busy.length > 0 && <span className="flex-1 rounded-full bg-rose-500 ring-1 ring-white/80" />}
+                    </span>
+                  )}
                   {holiday && (
                     <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-500" />
                   )}

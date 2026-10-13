@@ -156,3 +156,88 @@ def test_a_busy_day_blocks_the_trip_and_deleting_it_brings_the_trip_back(client)
     assert find(windows(client, gid, **SEARCH)["windows"], "2027-04-03", "2027-04-11") is None
     client.delete(f"/calendars/{sports}/events/{tournament['id']}")
     assert find(windows(client, gid, **SEARCH)["windows"], "2027-04-03", "2027-04-11") is not None
+
+
+# --- What the calendar draws -------------------------------------------------
+
+WINDOW = {"start": "2027-03-01", "end": "2027-06-30"}
+
+
+def schedule(client, gid, **params):
+    response = client.get(f"/groups/{gid}/schedule", params={**WINDOW, **params})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_the_calendar_gets_the_dates_of_the_people_you_manage(client):
+    parent = adult(client, "Parent", 10)  # the federal calendar is switched on, but isn't drawn from here
+    kid_id = kid(client)
+    school = make_calendar(client)
+    client.post(f"/calendars/{school}/events/bulk", json={"events": [SPRING, {**SPRING, "title": "Fall", "start_date": "2026-10-12", "end_date": "2026-10-12"}]})
+    attach(client, kid_id, school)
+    sports = make_calendar(client, "LEAGUE", "Soccer")
+    client.post(f"/calendars/{sports}/events/bulk", json={"events": [TOURNAMENT]})
+    attach(client, kid_id, sports)
+    gid = group(client, parent, kid_id)
+
+    result = schedule(client, gid)
+    assert [p["name"] for p in result] == ["Parent", "Kid"]
+    assert result[0]["items"] == []  # federal holidays aren't repeated here
+    assert [(i["title"], i["effect"], i["kind"]) for i in result[1]["items"]] == [
+        ("Spring Break", "DAY_OFF", "SCHOOL"),
+        ("Tournament", "BUSY", "LEAGUE"),
+    ]  # "Fall" is outside the asked-for dates; the rest are sorted by date
+
+
+def test_events_touching_the_range_edges_are_included(client):
+    kid_id = kid(client)
+    school = make_calendar(client)
+    client.post(f"/calendars/{school}/events/bulk", json={"events": [
+        {**SPRING, "title": "Starts before", "start_date": "2027-02-25", "end_date": "2027-03-02"},
+        {**SPRING, "title": "Ends after", "start_date": "2027-06-29", "end_date": "2027-07-05"},
+        {**SPRING, "title": "Just before", "start_date": "2027-02-27", "end_date": "2027-02-28"},
+    ]})
+    attach(client, kid_id, school)
+    gid = group(client, adult(client, "Parent", 10), kid_id)
+    titles = [i["title"] for i in schedule(client, gid)[1]["items"]]
+    assert titles == ["Starts before", "Ends after"]
+
+
+def test_skipped_titles_and_switched_off_calendars_are_left_out_like_the_search_does(client):
+    person = adult(client, "Parent", 10)
+    mine = make_calendar(client, "WORK", "Work")
+    client.post(f"/calendars/{mine}/events/bulk", json={"events": [SPRING, TOURNAMENT]})
+    client.post(f"/people/{person}/calendars", json={"calendar_id": mine, "excluded_titles": ["Spring Break"]})
+    gid = group(client, person)
+    assert [i["title"] for i in schedule(client, gid)[0]["items"]] == ["Tournament"]
+
+    db(client).execute(orm.PersonCalendar.__table__.update().where(
+        orm.PersonCalendar.person_id == person, orm.PersonCalendar.calendar_id == mine).values(enabled=False))
+    assert schedule(client, gid)[0]["items"] == []
+
+
+def test_other_families_schedules_stay_private(client):
+    from test_sharing import make_link, me_adult
+
+    pat = me_adult(client, "Pat Smith", 10)
+    group_id = client.post("/groups", json={"name": "Trip", "person_ids": [pat]}).json()["id"]
+    cal = make_calendar(client, "CUSTOM", "Pat's dates")
+    client.post(f"/calendars/{cal}/events/bulk", json={"events": [TOURNAMENT]})
+    attach(client, pat, cal)
+    invite = make_link(client, group_id, "INVITE")
+
+    sign_in(client, "lee@example.com")
+    lee = me_adult(client, "Lee Jones", 10)
+    client.post(f"/links/{invite['token']}/accept", json={"person_ids": [lee]})
+    result = schedule(client, group_id)
+    assert [p["name"] for p in result] == ["Lee Jones"]  # no Pat, and so none of Pat's dates
+
+    sign_in(client, "stranger@example.com")
+    assert client.get(f"/groups/{group_id}/schedule", params=WINDOW).status_code == 404
+
+
+def test_bad_ranges_are_rejected(client):
+    gid = group(client, adult(client, "Parent", 10))
+    assert client.get(f"/groups/{gid}/schedule", params={"start": "2027-06-30", "end": "2027-03-01"}).status_code == 422
+    assert client.get(f"/groups/{gid}/schedule", params={"start": "2026-01-01", "end": "2028-01-01"}).status_code == 422
+    assert client.get(f"/groups/{gid}/schedule", params={"start": "2027-03-01"}).status_code == 422
