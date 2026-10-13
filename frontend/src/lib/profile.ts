@@ -36,13 +36,21 @@ export function describePtoLeft(left: number, balance: number | null): string {
  */
 export async function ensureSelf(me: Me, profile: Profile): Promise<number> {
   if (me.self_person_id != null) return me.self_person_id;
+  return createAdult(profile, true);
+}
+
+/**
+ * Create an adult you manage and, if they get the federal holidays, subscribe
+ * them to that calendar. `isSelf` links the record to your account (once only).
+ */
+export async function createAdult(profile: Profile, isSelf: boolean): Promise<number> {
   const person = await api.POST("/people", {
     body: {
       name: profile.name,
       kind: "ADULT",
       pto_balance: profile.ptoBalance,
       work_week: profile.workWeek,
-      is_self: true,
+      is_self: isSelf,
       ...(profile.renewal && {
         pto_allowance: profile.renewal.allowance,
         pto_renews_on: { month: profile.renewal.month, day: profile.renewal.day },
@@ -59,4 +67,11 @@ export async function ensureSelf(me: Me, profile: Profile): Promise<number> {
     if (link.error) throw link.error;
   }
   return person.data.id;
+}
+
+/** Who Settings edits: the adult named in `?person=` if you manage them, otherwise you. */
+export function settingsTarget(me: Me, requested: string | null) {
+  const adults = me.people.filter((p) => p.kind === "ADULT");
+  const wanted = requested == null ? undefined : adults.find((p) => p.id === Number(requested));
+  return wanted ?? adults.find((p) => p.id === me.self_person_id);
 }

@@ -2,16 +2,26 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 import ProfileForm, { ErrorNote } from "@/components/ProfileForm";
 import { api, errorMessage, type Me } from "@/lib/api";
-import { updateBody, type Profile } from "@/lib/profile";
+import { settingsTarget, updateBody, type Profile } from "@/lib/profile";
 
-/** Change your name, PTO, renewal and work week after setup. */
-export default function Settings() {
+// useSearchParams needs a Suspense boundary so Next can still prerender the page shell.
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <Settings />
+    </Suspense>
+  );
+}
+
+/** Change your PTO, renewal and work week after setup, or those of an adult you manage (?person=). */
+function Settings() {
   const router = useRouter();
+  const params = useSearchParams();
   const { status } = useSession();
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +38,8 @@ export default function Settings() {
       .catch((err) => setError(errorMessage(err)));
   }, [status, router]);
 
-  const person = me?.people.find((p) => p.id === me.self_person_id);
+  const person = me ? settingsTarget(me, params.get("person")) : undefined;
+  const isSelf = person != null && person.id === me?.self_person_id;
 
   async function save(profile: Profile) {
     if (!person) return;
@@ -45,7 +56,8 @@ export default function Settings() {
       <Link href="/plan" className="text-sm text-zinc-500 underline">Back to your plan</Link>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Settings</h1>
       <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        Update your PTO and work week. Your suggestions re-rank as soon as you save.
+        {isSelf ? "Update your PTO and work week." : `Update ${person?.name ?? "their"}'s PTO and work week.`} Your
+        suggestions re-rank as soon as you save.
       </p>
 
       {error ? (
@@ -57,6 +69,7 @@ export default function Settings() {
       ) : (
         <ProfileForm
           initialName={person.name}
+          nameLabel={isSelf ? undefined : "Their first name"}
           current={{
             ptoBalance: person.pto_balance,
             workWeek: person.work_week,

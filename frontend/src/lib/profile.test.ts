@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describePtoLeft, updateBody } from "./profile";
+import { describePtoLeft, settingsTarget, updateBody } from "./profile";
 
 const base = { name: "Pat", ptoBalance: 7, workWeek: [0, 1, 2, 3], federal: true, renewal: null };
 
@@ -30,5 +30,27 @@ describe("describePtoLeft", () => {
 
   it("uses the singular for one day", () => {
     expect(describePtoLeft(1, 1)).toBe("1 PTO day left");
+  });
+});
+
+describe("settingsTarget", () => {
+  const person = (id: number, kind: "ADULT" | "CHILD") => ({ id, kind });
+  const me = {
+    self_person_id: 1,
+    people: [person(1, "ADULT"), person(2, "ADULT"), person(3, "CHILD")],
+  } as unknown as Parameters<typeof settingsTarget>[0];
+
+  it("defaults to you", () => {
+    expect(settingsTarget(me, null)?.id).toBe(1);
+  });
+
+  it("opens an adult you manage", () => {
+    expect(settingsTarget(me, "2")?.id).toBe(2);
+  });
+
+  it("falls back to you for a child, a stranger or junk", () => {
+    expect(settingsTarget(me, "3")?.id).toBe(1);
+    expect(settingsTarget(me, "99")?.id).toBe(1);
+    expect(settingsTarget(me, "abc")?.id).toBe(1);
   });
 });

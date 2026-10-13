@@ -112,3 +112,20 @@ def test_pto_left_ignores_trips_already_taken_and_other_years(client):
 
     client.post(f"/people/{pat}/pto-blocks", json={**NEW_YEAR_WEEK, "status": "COMMITTED"})
     assert pto_left(client, group_id, pat) == 6  # a booking before the renewal does
+
+
+def test_an_organizer_manages_a_partner_who_never_signs_in(client):
+    """A partner added with `is_self` false has no login. The organizer sees their PTO
+    left, can edit it, and the partner still can't be reached by anyone else."""
+    _, group_id = owner_with_group(client)
+    sam = client.post("/people", json={"name": "Sam", "kind": "ADULT", "pto_balance": 6}).json()["id"]
+    client.post(f"/people/{sam}/calendars", json={"calendar_id": 1})
+    client.post(f"/groups/{group_id}/members", json={"person_ids": [sam]})
+
+    assert pto_left(client, group_id, sam) == 6
+    assert client.put(f"/people/{sam}", json={"name": "Sam", "pto_balance": 9}).status_code == 200
+    assert pto_left(client, group_id, sam) == 9
+    assert person(client, sam)["name"] == "Sam"  # shows up under the organizer's people
+
+    sign_in(client, "stranger@example.com")
+    assert client.put(f"/people/{sam}", json={"name": "Hacked", "pto_balance": 99}).status_code == 404
