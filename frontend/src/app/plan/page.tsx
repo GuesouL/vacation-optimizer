@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -15,6 +16,7 @@ import { api, apiToken, errorMessage, type Group, type Me, type PersonSchedule, 
 import { describeCost } from "@/lib/costs";
 import { addDays, type ISODate, today } from "@/lib/dates";
 import { loadHidden, saveHidden } from "@/lib/preferences";
+import { describePtoLeft } from "@/lib/profile";
 import { buildDayMarks } from "@/lib/schedule";
 
 type Sort = "best_value" | "longest";
@@ -173,7 +175,7 @@ function Plan() {
             {solo && person ? `${person.name}'s best breaks` : group.name}
           </h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {person?.pto_balance != null && `You have ${person.pto_balance} PTO days · `}next 12 months
+            {person?.pto_left != null && `You have ${describePtoLeft(person.pto_left, person.pto_balance)} · `}next 12 months
           </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
@@ -191,6 +193,9 @@ function Plan() {
               </select>
             </label>
           )}
+          <Link href="/settings" className="text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
+            Settings
+          </Link>
           <button onClick={signOutNow} className="text-zinc-500 underline hover:text-zinc-800 dark:hover:text-zinc-200">
             Sign out
           </button>

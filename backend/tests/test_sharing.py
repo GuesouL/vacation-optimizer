@@ -68,7 +68,7 @@ def test_other_families_see_names_not_balances(client):
     as_lee = {p["id"]: p for p in client.get(f"/groups/{group_id}").json()["people"]}
     assert as_lee[lee]["pto_balance"] == 3 and as_lee[lee]["mine"]
     assert as_lee[pat] == {"id": pat, "name": "Pat Smith", "kind": "ADULT", "mine": False,
-                           "pto_balance": None, "work_week": None}
+                           "pto_balance": None, "work_week": None, "pto_left": None}
 
     sign_in(client, "parent@example.com")
     as_pat = {p["id"]: p for p in client.get(f"/groups/{group_id}").json()["people"]}

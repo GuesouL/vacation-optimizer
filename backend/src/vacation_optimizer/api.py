@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from . import orm, schedule, sharing, trips
 from .access import (
@@ -24,6 +25,7 @@ from .access import (
 from .auth import CurrentAccount
 from .db import DB
 from .holidays import federal_calendar
+from .loader import remaining_pto
 from .schemas import (
     AddMembersIn,
     CalendarIn,
@@ -37,12 +39,14 @@ from .schemas import (
     MeOut,
     PersonIn,
     PersonOut,
+    PersonUpdate,
     PTOBlockIn,
     PTOBlockOut,
     SearchOut,
     SubscribeIn,
 )
 from .search import SearchParams, load_group, search_group
+from .trips import Today
 
 app = FastAPI(title="Vacation Optimizer")
 
@@ -123,6 +127,20 @@ def create_person(body: PersonIn, account: CurrentAccount, session: DB) -> Perso
     return person
 
 
+@app.put("/people/{person_id}")
+def update_person(person_id: int, body: PersonUpdate, account: CurrentAccount, session: DB) -> PersonOut:
+    """Edit a person you manage: name, PTO, renewal, work week. Replaces the old values."""
+    person = my_person(session, account, person_id)
+    if person.kind is orm.PersonKind.ADULT and body.pto_balance is None:
+        raise HTTPException(422, "adults need a pto_balance")
+    if person.kind is orm.PersonKind.CHILD and body.pto_balance is not None:
+        raise HTTPException(422, "children don't have a pto_balance")
+    for column, value in body.columns().items():
+        setattr(person, column, value)
+    session.commit()
+    return person
+
+
 @app.post("/people/{person_id}/calendars", status_code=204)
 def subscribe(person_id: int, body: SubscribeIn, account: CurrentAccount, session: DB) -> None:
     """Turn a calendar on for a person (or update their excluded holidays)."""
@@ -184,7 +202,7 @@ def add_event(calendar_id: int, body: EventIn, account: CurrentAccount, session:
 # --- Groups and the optimizer --------------------------------------------
 
 
-def group_out(group: orm.Group, account: orm.Account) -> GroupOut:
+def group_out(session: Session, group: orm.Group, account: orm.Account, today: date) -> GroupOut:
     people = []
     for member in group.members:
         person, mine = member.person, manages(account, member.person)
@@ -196,12 +214,13 @@ def group_out(group: orm.Group, account: orm.Account) -> GroupOut:
             mine=mine,
             pto_balance=person.pto_balance if mine else None,
             work_week=person.work_week if mine else None,
+            pto_left=remaining_pto(session, person, today) if mine else None,
         ))
     return GroupOut(id=group.id, name=group.name, role=role_in(account, group), people=people)
 
 
 @app.post("/groups", status_code=201)
-def create_group(body: GroupIn, account: CurrentAccount, session: DB) -> GroupOut:
+def create_group(body: GroupIn, account: CurrentAccount, session: DB, today: Today) -> GroupOut:
     for person_id in set(body.person_ids):
         my_person(session, account, person_id)  # other families join by invite instead
     group = orm.Group(
@@ -211,16 +230,18 @@ def create_group(body: GroupIn, account: CurrentAccount, session: DB) -> GroupOu
     )
     session.add(group)
     session.commit()
-    return group_out(group, account)
+    return group_out(session, group, account, today)
 
 
 @app.get("/groups/{group_id}")
-def get_group(group_id: int, account: CurrentAccount, session: DB) -> GroupOut:
-    return group_out(my_group(session, account, group_id), account)
+def get_group(group_id: int, account: CurrentAccount, session: DB, today: Today) -> GroupOut:
+    return group_out(session, my_group(session, account, group_id), account, today)
 
 
 @app.post("/groups/{group_id}/members")
-def add_members(group_id: int, body: AddMembersIn, account: CurrentAccount, session: DB) -> GroupOut:
+def add_members(
+    group_id: int, body: AddMembersIn, account: CurrentAccount, session: DB, today: Today
+) -> GroupOut:
     """Bring more of your own people (a kid, a partner) into a group you're in."""
     group = my_group(session, account, group_id)
     already = {m.person_id for m in group.members}
@@ -229,7 +250,7 @@ def add_members(group_id: int, body: AddMembersIn, account: CurrentAccount, sess
         if person_id not in already:
             group.members.append(orm.GroupMember(person_id=person_id))
     session.commit()
-    return group_out(group, account)
+    return group_out(session, group, account, today)
 
 
 @app.delete("/groups/{group_id}/members/{person_id}", status_code=204)

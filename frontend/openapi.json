@@ -138,6 +138,61 @@
         ]
       }
     },
+    "/people/{person_id}": {
+      "put": {
+        "summary": "Update Person",
+        "description": "Edit a person you manage: name, PTO, renewal, work week. Replaces the old values.",
+        "operationId": "update_person_people__person_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/people/{person_id}/calendars": {
       "post": {
         "summary": "Subscribe",
@@ -2218,6 +2273,17 @@
               }
             ],
             "title": "Work Week"
+          },
+          "pto_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Left"
           }
         },
         "type": "object",
@@ -2227,7 +2293,8 @@
           "kind",
           "mine",
           "pto_balance",
-          "work_week"
+          "work_week",
+          "pto_left"
         ],
         "title": "MemberOut",
         "description": "A person in a group. Balance and work week are None unless they're yours."
@@ -2564,6 +2631,85 @@
           "items"
         ],
         "title": "PersonScheduleOut"
+      },
+      "PersonUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "pto_balance": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Balance"
+          },
+          "work_week": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Work Week",
+            "description": "Mon=0 ... Sun=6",
+            "default": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "pto_allowance": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Allowance"
+          },
+          "pto_renews_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenewsOn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pto_carryover_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 365.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Carryover Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "PersonUpdate",
+        "description": "Everything about a person that can change after setup. Replaces the old values:\nleaving the renewal fields out clears them. Who they are (adult or child, and\nwhether it's you) stays fixed."
       },
       "RenewsOn": {
         "properties": {

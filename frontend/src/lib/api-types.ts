@@ -79,6 +79,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/people/{person_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Person
+         * @description Edit a person you manage: name, PTO, renewal, work week. Replaces the old values.
+         */
+        put: operations["update_person_people__person_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/people/{person_id}/calendars": {
         parameters: {
             query?: never;
@@ -747,6 +767,8 @@ export interface components {
             pto_balance: number | null;
             /** Work Week */
             work_week: number[] | null;
+            /** Pto Left */
+            pto_left: number | null;
         };
         /** NewLinkOut */
         NewLinkOut: {
@@ -879,6 +901,35 @@ export interface components {
             kind: components["schemas"]["PersonKind"];
             /** Items */
             items: components["schemas"]["ScheduleItemOut"][];
+        };
+        /**
+         * PersonUpdate
+         * @description Everything about a person that can change after setup. Replaces the old values:
+         *     leaving the renewal fields out clears them. Who they are (adult or child, and
+         *     whether it's you) stays fixed.
+         */
+        PersonUpdate: {
+            /** Name */
+            name: string;
+            /** Pto Balance */
+            pto_balance?: number | null;
+            /**
+             * Work Week
+             * @description Mon=0 ... Sun=6
+             * @default [
+             *       0,
+             *       1,
+             *       2,
+             *       3,
+             *       4
+             *     ]
+             */
+            work_week?: number[];
+            /** Pto Allowance */
+            pto_allowance?: number | null;
+            pto_renews_on?: components["schemas"]["RenewsOn"] | null;
+            /** Pto Carryover Max */
+            pto_carryover_max?: number | null;
         };
         /** RenewsOn */
         RenewsOn: {
@@ -1102,6 +1153,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_person_people__person_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
