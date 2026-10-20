@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
+import Sheet from "@/components/Sheet";
 import { MonthGrid } from "@/components/YearCalendar";
 import { api, errorMessage, type Trip, type Window } from "@/lib/api";
 import { monthsOf, ptoDays, takeOffNote } from "@/lib/breaks";
@@ -75,36 +76,12 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
   );
 }
 
-/**
- * Phones: the break's detail in a sheet that slides up from the bottom. A native
- * <dialog> opened with showModal() gives us the dimmed backdrop, Esc to close and
- * focus kept inside for free.
- */
+/** Phones: the break's detail in a sheet. Laptops show it in the Breaks side panel instead. */
 export function BreakSheet(props: Props & { open: boolean; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const { open, onClose, ...detail } = props;
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      // A tap on the backdrop lands on the <dialog> itself, not its content: close.
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      aria-label="Break details"
-      className="m-0 mt-auto max-h-[85vh] w-full max-w-none rounded-t-2xl bg-app-surface p-0 text-foreground backdrop:bg-black/40 md:hidden"
-    >
-      <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-app-line" aria-hidden="true" />
-        <button onClick={onClose} className="float-right text-sm text-app-link underline">Close</button>
-        <BreakDetail {...detail} />
-      </div>
-    </dialog>
+    <Sheet open={open} onClose={onClose} label="Break details" className="md:hidden">
+      <BreakDetail {...detail} />
+    </Sheet>
   );
 }
