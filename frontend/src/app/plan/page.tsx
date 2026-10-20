@@ -11,9 +11,9 @@ import BreakDetail, { BreakSheet } from "@/components/BreakDetail";
 import { TabBar, TabNav } from "@/components/PlanTabs";
 import { FreeCard, StretchCard } from "@/components/HomeCards";
 import MonthCalendar from "@/components/MonthCalendar";
+import PeopleList, { type Opened } from "@/components/PeopleList";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
-import ScheduleEditor from "@/components/ScheduleEditor";
 import SharePanel from "@/components/SharePanel";
 import WindowList from "@/components/WindowList";
 import YearCalendar from "@/components/YearCalendar";
@@ -55,7 +55,7 @@ function Plan() {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [editing, setEditing] = useState<number | null>(null); // whose schedule is open
+  const [opened, setOpened] = useState<Opened>(null); // whose People sheet is open
   const [schedules, setSchedules] = useState<PersonSchedule[]>([]); // dates of the people you manage
   const [hidden, setHidden] = useState<number[]>(loadHidden); // people whose dates you chose not to draw
   const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
@@ -352,66 +352,30 @@ function Plan() {
     people: (
       <div className="mx-auto max-w-xl">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">Who&apos;s going</h2>
-        <ul className="mt-2 space-y-1 text-sm">
-          {group.people.map((p) => (
-            <li key={p.id}>
-              <div className="flex items-center justify-between gap-2">
-                <span>
-                  {p.name}
-                  {p.mine && (
-                    <span className="ml-2 text-xs text-app-muted">{p.id === me.self_person_id ? "you" : "yours"}</span>
-                  )}
-                </span>
-                <span className="flex items-center gap-3">
-                  {schedules.find((s) => s.person_id === p.id)?.items.length ? (
-                    <label className="flex items-center gap-1 text-xs text-app-muted">
-                      <input
-                        type="checkbox"
-                        checked={!hidden.includes(p.id)}
-                        onChange={(e) => toggleDates(p.id, e.target.checked)}
-                        aria-label={`Show ${p.name}'s dates on the calendar`}
-                      />
-                      Show
-                    </label>
-                  ) : null}
-                  {p.mine && p.kind === "ADULT" && (
-                    <Link href={`/settings?person=${p.id}`} className="text-xs text-app-link underline">
-                      Edit
-                    </Link>
-                  )}
-                  {p.mine && (
-                    <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-app-link underline">
-                      Schedule
-                    </button>
-                  )}
-                  {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
-                    <button onClick={() => remove(p.id)} className="text-xs text-app-muted underline">
-                      {p.mine ? "Take out" : "Remove"}
-                    </button>
-                  )}
-                </span>
-              </div>
-              {editing === p.id && (
-                <ScheduleEditor
-                  person={p}
-                  onChanged={() => setVersion((v) => v + 1)} // new dates change every suggestion: re-rank
-                  onClose={() => setEditing(null)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-2">
+          <PeopleList
+            group={group}
+            selfId={me.self_person_id}
+            schedules={schedules}
+            hidden={hidden}
+            opened={opened}
+            onOpen={setOpened}
+            onToggleDates={toggleDates}
+            onRemove={remove}
+            onChanged={() => setVersion((v) => v + 1)}
+          />
+        </div>
         <AddKid
           groupId={group.id}
           onAdded={(kidId, enterSchedule) => {
             setVersion((v) => v + 1);
-            if (enterSchedule) setEditing(kidId); // their school isn't listed: type its dates in next
+            if (enterSchedule) setOpened({ id: kidId, schedule: true }); // their school isn't listed: type its dates in next
           }}
         />
         <AddAdult groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
         {solo && (
           <p className="mt-2 text-xs text-app-muted">
-            Use Schedule next to a name for school breaks, games, or dates you can&apos;t take off.
+            Tap a name for their schedule: school breaks, games, or dates you can&apos;t take off.
           </p>
         )}
         {group.role === "OWNER" && <SharePanel groupId={group.id} />}
