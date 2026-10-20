@@ -22,7 +22,7 @@ import { describeCost } from "@/lib/costs";
 import { addDays, type ISODate, today } from "@/lib/dates";
 import { loadHidden, saveHidden } from "@/lib/preferences";
 import { describePtoLeft } from "@/lib/profile";
-import { isSaved } from "@/lib/trips";
+import { isSaved, nextRenewal } from "@/lib/trips";
 import { buildDayMarks } from "@/lib/schedule";
 import { parseTab, type Tab, TABS, tabQuery } from "@/lib/tabs";
 
@@ -184,6 +184,8 @@ function Plan() {
   if (!me || !group || !search) return <Loading />;
 
   const solo = group.people.length === 1;
+  // When your PTO renews (Jan 1 unless you set a date in Settings): bookings after it use next year's days.
+  const renewal = nextRenewal(start, me.people.find((p) => p.id === me.self_person_id)?.pto_renews_on);
   const planTitle = solo && person ? `${person.name}'s best breaks` : group.name;
   // PTO to plan with: yours alone; in a group, the lowest anyone has left, since that
   // person decides whether a trip fits everyone.
@@ -246,6 +248,10 @@ function Plan() {
     workWeek,
     marks,
     onSaved: () => setTripsVersion((v) => v + 1),
+    onSeeHome: () => {
+      setSheetOpen(false);
+      openTab("home");
+    },
   };
 
   const ranked = (
@@ -290,6 +296,7 @@ function Plan() {
           <TripsCard
             groupId={group.id}
             trips={trips}
+            renewal={renewal}
             onPtoChanged={() => setVersion((v) => v + 1)} // booked days change every cost: re-rank
           />
           <BestPickCard
@@ -393,6 +400,8 @@ function Plan() {
               {person.pto_balance != null
                 ? `${person.pto_left} of ${person.pto_balance} PTO days left`
                 : describePtoLeft(person.pto_left, person.pto_balance)}
+              {/* Trips after the renewal don't touch this year's number, so say where they went. */}
+              {person.pto_next_year ? ` · ${person.pto_next_year} booked from next year` : ""}
             </p>
           )}
         </div>

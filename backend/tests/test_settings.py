@@ -109,6 +109,9 @@ def test_pto_left_ignores_trips_already_taken_and_other_years(client):
             "start_date": dates[0], "end_date": dates[1], "status": "COMMITTED",
         })
     assert pto_left(client, group_id, pat) == 10  # neither booking comes off today's balance
+    # The January booking is counted separately, so the app can say where it came from.
+    people = client.get(f"/groups/{group_id}").json()["people"]
+    assert next(p for p in people if p["id"] == pat)["pto_next_year"] == 4
 
     client.post(f"/people/{pat}/pto-blocks", json={**NEW_YEAR_WEEK, "status": "COMMITTED"})
     assert pto_left(client, group_id, pat) == 6  # a booking before the renewal does

@@ -25,7 +25,7 @@ from .access import (
 from .auth import CurrentAccount
 from .db import DB
 from .holidays import federal_calendar
-from .loader import remaining_pto
+from .loader import pto_left
 from .schemas import (
     AddMembersIn,
     CalendarIn,
@@ -206,6 +206,7 @@ def group_out(session: Session, group: orm.Group, account: orm.Account, today: d
     people = []
     for member in group.members:
         person, mine = member.person, manages(account, member.person)
+        left, next_year = pto_left(session, person, today) if mine else (None, None)
         # Free/busy privacy: other families see a name, never a balance or schedule.
         people.append(MemberOut(
             id=person.id,
@@ -214,7 +215,8 @@ def group_out(session: Session, group: orm.Group, account: orm.Account, today: d
             mine=mine,
             pto_balance=person.pto_balance if mine else None,
             work_week=person.work_week if mine else None,
-            pto_left=remaining_pto(session, person, today) if mine else None,
+            pto_left=left,
+            pto_next_year=next_year,
         ))
     return GroupOut(id=group.id, name=group.name, role=role_in(account, group), people=people)
 

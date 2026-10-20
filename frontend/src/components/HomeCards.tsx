@@ -10,7 +10,7 @@ import { describeCost } from "@/lib/costs";
 import { formatRange, type ISODate } from "@/lib/dates";
 import type { DayMark } from "@/lib/schedule";
 import { ptoCost, soonest, stretch } from "@/lib/stretch";
-import { bookedBy } from "@/lib/trips";
+import { bookedBy, bookedNote } from "@/lib/trips";
 
 /** "Nov 26 – Nov 29": the short range the mockup's cards use (no weekday). */
 const SHORT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -158,19 +158,20 @@ export function FreeCard(props: {
  * Your saved and booked trips. Tap one for its sheet: book your PTO, cancel the
  * booking, or delete it. Booking changes PTO, so the parent re-ranks after (`onPtoChanged`).
  */
-export function TripsCard(props: { groupId: number; trips: Trip[]; onPtoChanged: () => void }) {
+export function TripsCard(props: { groupId: number; trips: Trip[]; renewal: string; onPtoChanged: () => void }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const trip = props.trips.find((t) => t.id === openId);
 
-  async function run(request: () => Promise<{ error?: unknown }>) {
+  // Booking keeps the sheet open so it can say what happened to your PTO; deleting closes it.
+  async function run(request: () => Promise<{ error?: unknown }>, close = false) {
     setBusy(true);
     setError(null);
     const { error } = await request();
     setBusy(false);
     if (error) return setError(errorMessage(error));
-    setOpenId(null);
+    if (close) setOpenId(null);
     props.onPtoChanged();
   }
   const path = (t: Trip) => ({ params: { path: { group_id: props.groupId, trip_id: t.id } } });
@@ -207,7 +208,7 @@ export function TripsCard(props: { groupId: number; trips: Trip[]; onPtoChanged:
             </p>
             <p className="mt-3 text-sm">
               {trip.mine_booked
-                ? "Your PTO for this trip is booked, and your balance already counts it."
+                ? bookedNote(trip.start_date, props.renewal)
                 : "Saved, not booked. Booking takes the PTO from everyone you manage who's going."}
             </p>
             {trip.can_book && !trip.mine_booked && (
@@ -223,7 +224,7 @@ export function TripsCard(props: { groupId: number; trips: Trip[]; onPtoChanged:
               </button>
             )}
             {trip.can_delete && (
-              <button disabled={busy} onClick={() => run(() => api.DELETE("/groups/{group_id}/trips/{trip_id}", path(trip)))}
+              <button disabled={busy} onClick={() => run(() => api.DELETE("/groups/{group_id}/trips/{trip_id}", path(trip)), true)}
                 className={`${button} border border-app-line text-app-danger`}>
                 Delete trip
               </button>

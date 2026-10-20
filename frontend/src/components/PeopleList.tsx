@@ -58,7 +58,7 @@ export default function PeopleList(props: {
 
 function Avatar({ name }: { name: string }) {
   return (
-    <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-app-tile font-semibold">
+    <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-app-soft font-bold text-app-soft-ink">
       {name.charAt(0).toUpperCase()}
     </span>
   );

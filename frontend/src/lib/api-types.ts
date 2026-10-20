@@ -769,6 +769,8 @@ export interface components {
             work_week: number[] | null;
             /** Pto Left */
             pto_left: number | null;
+            /** Pto Next Year */
+            pto_next_year?: number | null;
         };
         /** NewLinkOut */
         NewLinkOut: {

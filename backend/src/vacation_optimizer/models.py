@@ -115,6 +115,14 @@ class Person:
         last_day = self.next_renewal(as_of) - timedelta(days=1)
         return self.pto_balance - self.charged_days(as_of, last_day)
 
+    def booked_next_year(self, as_of: date) -> int | None:
+        """PTO already booked for trips in the next PTO year (renewal to the one after).
+        It doesn't come off `remaining_pto`, so the app shows it separately."""
+        if self.pto_balance is None:
+            return None
+        first_day = self.next_renewal(as_of)
+        return self.charged_days(first_day, self.next_renewal(first_day) - timedelta(days=1))
+
 
 @dataclass(frozen=True)
 class Window:
