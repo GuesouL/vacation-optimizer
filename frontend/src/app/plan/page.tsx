@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import AddAdult from "@/components/AddAdult";
 import AddKid from "@/components/AddKid";
+import BreakDetail, { BreakSheet } from "@/components/BreakDetail";
 import { TabBar, TabNav } from "@/components/PlanTabs";
 import { FreeCard, StretchCard } from "@/components/HomeCards";
 import { ErrorNote } from "@/components/ProfileForm";
@@ -57,6 +58,7 @@ function Plan() {
   const [schedules, setSchedules] = useState<PersonSchedule[]>([]); // dates of the people you manage
   const [hidden, setHidden] = useState<number[]>(loadHidden); // people whose dates you chose not to draw
   const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
+  const [sheetOpen, setSheetOpen] = useState(false); // phones: the selected break's detail sheet
 
   // ?group=12 picks a group; otherwise your first one.
   const groupId = Number(params.get("group")) || me?.groups[0]?.id;
@@ -148,6 +150,15 @@ function Plan() {
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
 
+  // Pick a break. Laptops show it in the side panel already; phones open the sheet.
+  // (Only on phones: a modal hidden by CSS would still block the page behind it.)
+  function showBreak(w: Window): boolean {
+    setSelected(w);
+    const phone = window.matchMedia("(max-width: 47.99rem)").matches;
+    if (phone) setSheetOpen(true);
+    return phone;
+  }
+
   function openTab(next: Tab) {
     router.push(`/plan${tabQuery(params, next)}`);
   }
@@ -232,13 +243,22 @@ function Plan() {
     </>
   );
 
+  const detailProps = {
+    groupId: group.id,
+    trips,
+    holidays,
+    workWeek,
+    marks,
+    onSaved: () => setTripsVersion((v) => v + 1),
+  };
+
   const ranked = (
     <WindowList
       title="Ranked suggestions"
       empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
       windows={search.windows}
       selected={selected}
-      onSelect={setSelected}
+      onSelect={showBreak}
       describe={describeCost}
       badge={(w) => (sort === "best_value" && w.score ? `${w.score.toFixed(1)}×` : null)}
     />
@@ -262,8 +282,7 @@ function Plan() {
               windows={search.windows}
               people={group.people.map((p) => p.name)}
               onPick={(w) => {
-                setSelected(w);
-                openTab("breaks");
+                if (!showBreak(w)) openTab("breaks"); // laptops: its detail panel is on Breaks
               }}
             />
           </aside>
@@ -276,7 +295,7 @@ function Plan() {
             empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
             windows={search.windows.slice(0, 1)}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={showBreak}
             describe={describeCost}
             badge={() => null}
           />
@@ -299,12 +318,20 @@ function Plan() {
             empty="None in this range."
             windows={search.free_long_weekends}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={showBreak}
             describe={describeCost}
             badge={() => null}
           />
         </section>
-        <section aria-label="Year calendar" className="hidden md:block">{calendar}</section>
+        {/* Laptops: list on the left, the picked break and the year on the right. */}
+        <section aria-label="Break details and calendar" className="hidden md:block">
+          {selected && (
+            <div className="mb-8 rounded-2xl bg-app-surface p-4 shadow-sm">
+              <BreakDetail window={selected} {...detailProps} />
+            </div>
+          )}
+          {calendar}
+        </section>
       </div>
     ),
 
@@ -421,6 +448,9 @@ function Plan() {
       <div className="mt-8">{tabs[tab]}</div>
 
       <TabBar current={tab} onChange={openTab} />
+      {selected && (
+        <BreakSheet window={selected} open={sheetOpen} onClose={() => setSheetOpen(false)} {...detailProps} />
+      )}
     </main>
   );
 }
