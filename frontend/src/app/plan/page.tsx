@@ -248,6 +248,7 @@ function Plan() {
     workWeek,
     marks,
     onSaved: () => setTripsVersion((v) => v + 1),
+    earliest: start,
     onSeeHome: () => {
       setSheetOpen(false);
       openTab("home");
@@ -334,7 +335,7 @@ function Plan() {
         <section aria-label="Break details and calendar" className="hidden md:block">
           {selected && (
             <div className="mb-8 rounded-2xl bg-app-surface p-4 shadow-sm">
-              <BreakDetail window={selected} {...detailProps} />
+              <BreakDetail key={`${selected.start}-${selected.end}`} window={selected} {...detailProps} />
             </div>
           )}
           {calendar}

@@ -74,3 +74,25 @@ export function whyText(
   }
   return reasons.size ? [...reasons].slice(0, 2).join(" + ") : null;
 }
+
+type Range = { start: ISODate; end: ISODate };
+
+/** Longest trip the API saves (TripIn.not_too_long). */
+export const MAX_TRIP_DAYS = 31;
+
+/**
+ * Stretch or trim a suggested break by tapping a day. A day before the break
+ * moves its start back, a day after moves its end out, and tapping its first or
+ * last day trims that end by one, but never smaller than the suggestion itself
+ * and never before `earliest` (today) or past 31 days. Returns the range unchanged
+ * when the tap can't apply.
+ */
+export function stretchTo(range: Range, day: ISODate, suggested: Range, earliest: ISODate): Range {
+  let next = range;
+  if (day < range.start) next = { ...range, start: day };
+  else if (day > range.end) next = { ...range, end: day };
+  else if (day === range.start && day < suggested.start) next = { ...range, start: addDays(day, 1) };
+  else if (day === range.end && day > suggested.end) next = { ...range, end: addDays(day, -1) };
+  if (next.start < earliest || daysIn(next.start, next.end).length > MAX_TRIP_DAYS) return range;
+  return next;
+}
