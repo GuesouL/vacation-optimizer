@@ -40,6 +40,7 @@ export function describeDay(
     selected: { start: ISODate; end: ISODate } | null;
     saved: { start_date: ISODate; end_date: ISODate }[];
     marks: Map<ISODate, { off: string[]; busy: string[] }>;
+    picks?: { start: ISODate; end: ISODate }[];
   },
 ): string {
   const holiday = ctx.holidays.get(day);
@@ -48,10 +49,28 @@ export function describeDay(
   if (ctx.selected && ctx.selected.start <= day && day <= ctx.selected.end) {
     parts.push(workday ? "Selected break (your PTO day)" : "Selected break");
   } else if (ctx.saved.some((t) => t.start_date <= day && day <= t.end_date)) {
-    parts.push("Saved trip");
+    parts.push(workday ? "Saved trip (your PTO day)" : "Saved trip");
+  } else if (ctx.picks?.some((p) => p.start <= day && day <= p.end)) {
+    parts.push("Part of a good pick");
   }
   const mark = ctx.marks.get(day);
   if (mark) parts.push(...mark.off, ...mark.busy);
   if (!parts.length) parts.push(workday ? "Nothing planned" : "Day off");
   return parts.join(" · ");
+}
+
+/** Why a break works, from what falls inside it: "Mia: Winter break (no school) + Christmas Day". */
+export function whyText(
+  start: ISODate,
+  end: ISODate,
+  holidays: Map<ISODate, string>,
+  marks: Map<ISODate, { off: string[] }>,
+): string | null {
+  const reasons = new Set<string>();
+  for (const d of daysIn(start, end)) {
+    for (const off of marks.get(d)?.off ?? []) reasons.add(off);
+    const holiday = holidays.get(d);
+    if (holiday) reasons.add(holiday);
+  }
+  return reasons.size ? [...reasons].slice(0, 2).join(" + ") : null;
 }

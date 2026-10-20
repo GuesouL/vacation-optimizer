@@ -61,7 +61,7 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
       </div>
       <p className="mt-3 text-sm">{takeOffNote(w.days, ptoDays(w.start, w.end, workWeek, holidays))}</p>
       {saved ? (
-        <p className="mt-3 text-sm font-medium text-app-muted">✓ Saved. Book it from Saved trips.</p>
+        <p className="mt-3 text-sm font-medium text-app-muted">✓ Saved. Book it from Your trips on Home.</p>
       ) : (
         <button
           onClick={save}
