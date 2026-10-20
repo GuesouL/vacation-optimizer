@@ -21,7 +21,14 @@ type Props = {
 const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
-type GridProps = Omit<Props, "start"> & { year: number; month: number; start?: ISODate };
+type GridProps = Omit<Props, "start"> & {
+  year: number;
+  month: number;
+  start?: ISODate;
+  chosen?: ISODate | null; // the tapped day, outlined
+  onDay?: (day: ISODate) => void; // makes each day a button
+  phoneTitle?: boolean; // off when a heading above already names the month on phones
+};
 
 /**
  * One mini month, used by the year view and by a break's detail. Holidays get a dot,
@@ -29,11 +36,11 @@ type GridProps = Omit<Props, "start"> & { year: number; month: number; start?: I
  * breaks (thin pink bar) and busy days (thick red bar) show along the top. Bars and dots
  * keep a ring in the card color so they stay visible on top of a shaded trip.
  */
-export function MonthGrid({ year, month, start, holidays, workWeek, selected, saved = [], marks }: GridProps) {
+export function MonthGrid({ year, month, start, holidays, workWeek, selected, saved = [], marks, chosen, onDay, phoneTitle = true }: GridProps) {
   const name = MONTH.format(Date.UTC(year, month - 1, 1));
   return (
     <section className="rounded-xl bg-app-surface p-3" aria-label={name}>
-      <h3 className="mb-2 text-sm font-semibold">{name}</h3>
+      <h3 className={`mb-2 text-sm font-semibold ${phoneTitle ? "" : "hidden md:block"}`}>{name}</h3>
       <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
         {HEADERS.map((h, i) => (
           <div key={i} className="pb-1 text-app-muted">{h}</div>
@@ -46,10 +53,12 @@ export function MonthGrid({ year, month, start, holidays, workWeek, selected, sa
           const inSaved = saved.some((t) => isBetween(day, t.start_date, t.end_date));
           const mark = marks?.get(day);
           const tooltip = [holiday ? `${formatDate(day)}: ${holiday}` : formatDate(day), ...(mark?.off ?? []), ...(mark?.busy ?? [])];
+          const Cell = onDay ? "button" : "div";
           return (
-            <div
+            <Cell
               key={day}
               title={tooltip.join("\n")}
+              {...(onDay && { type: "button" as const, onClick: () => onDay(day), "aria-pressed": chosen === day })}
               className={[
                 "relative rounded py-1 tabular-nums",
                 inTrip
@@ -57,6 +66,7 @@ export function MonthGrid({ year, month, start, holidays, workWeek, selected, sa
                   : inSaved ? "bg-app-soft font-medium text-app-soft-ink"
                   : dayOff ? "bg-app-tile text-app-muted" : "",
                 start && day < start ? "opacity-30" : "",
+                chosen === day ? "outline-2 outline-offset-1 outline-foreground" : "",
               ].join(" ")}
             >
               {Number(day.slice(8))}
@@ -69,7 +79,7 @@ export function MonthGrid({ year, month, start, holidays, workWeek, selected, sa
               {holiday && (
                 <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-app-holiday ring-1 ring-app-surface" />
               )}
-            </div>
+            </Cell>
           );
         })}
       </div>

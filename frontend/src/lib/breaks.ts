@@ -30,3 +30,28 @@ export function monthsOf(start: ISODate, end: ISODate): { year: number; month: n
     if (`${y}-${String(m).padStart(2, "0")}` >= end.slice(0, 7)) return months;
   }
 }
+
+/** Everything on one day, for the line under the calendar: "Thanksgiving · Selected break". */
+export function describeDay(
+  day: ISODate,
+  ctx: {
+    holidays: Map<ISODate, string>;
+    workWeek: number[];
+    selected: { start: ISODate; end: ISODate } | null;
+    saved: { start_date: ISODate; end_date: ISODate }[];
+    marks: Map<ISODate, { off: string[]; busy: string[] }>;
+  },
+): string {
+  const holiday = ctx.holidays.get(day);
+  const workday = ctx.workWeek.includes(weekday(day)) && !holiday;
+  const parts: string[] = holiday ? [holiday] : [];
+  if (ctx.selected && ctx.selected.start <= day && day <= ctx.selected.end) {
+    parts.push(workday ? "Selected break (your PTO day)" : "Selected break");
+  } else if (ctx.saved.some((t) => t.start_date <= day && day <= t.end_date)) {
+    parts.push("Saved trip");
+  }
+  const mark = ctx.marks.get(day);
+  if (mark) parts.push(...mark.off, ...mark.busy);
+  if (!parts.length) parts.push(workday ? "Nothing planned" : "Day off");
+  return parts.join(" · ");
+}

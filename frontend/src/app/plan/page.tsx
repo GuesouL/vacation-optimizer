@@ -10,6 +10,7 @@ import AddKid from "@/components/AddKid";
 import BreakDetail, { BreakSheet } from "@/components/BreakDetail";
 import { TabBar, TabNav } from "@/components/PlanTabs";
 import { FreeCard, StretchCard } from "@/components/HomeCards";
+import MonthCalendar from "@/components/MonthCalendar";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
 import ScheduleEditor from "@/components/ScheduleEditor";
@@ -225,21 +226,25 @@ function Plan() {
     />
   );
 
+  const legend = (
+    <p className="mt-4 flex flex-wrap gap-4 text-xs text-app-muted">
+      <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-app-holiday" />Holiday</span>
+      <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-accent align-middle" />Selected trip</span>
+      <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-strong align-middle" />Your PTO day</span>
+      <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-soft ring-1 ring-inset ring-app-line align-middle" />Saved trip</span>
+      {marks.size > 0 && (
+        <>
+          <span><span className="mr-1 inline-block h-[3px] w-3 rounded-full bg-app-school align-middle" />School break or day off</span>
+          <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-app-busy align-middle" />Busy</span>
+        </>
+      )}
+    </p>
+  );
+
   const calendar = (
     <>
       <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} marks={marks} />
-      <p className="mt-4 flex flex-wrap gap-4 text-xs text-app-muted">
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-app-holiday" />Holiday</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-accent align-middle" />Selected trip</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-strong align-middle" />Your PTO day</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded bg-app-soft ring-1 ring-inset ring-app-line align-middle" />Saved trip</span>
-        {marks.size > 0 && (
-          <>
-            <span><span className="mr-1 inline-block h-[3px] w-3 rounded-full bg-app-school align-middle" />School break or day off</span>
-            <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-app-busy align-middle" />Busy</span>
-          </>
-        )}
-      </p>
+      {legend}
     </>
   );
 
@@ -335,7 +340,13 @@ function Plan() {
       </div>
     ),
 
-    calendar: <section aria-label="Year calendar">{calendar}</section>,
+    // Calendar: a month at a time (three on laptops), tap a day for its details.
+    calendar: (
+      <section aria-label="Calendar" className="mx-auto max-w-xl md:max-w-none">
+        <MonthCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} marks={marks} />
+        {legend}
+      </section>
+    ),
 
     // People: who's in the plan, their schedules, and adding or sharing.
     people: (
