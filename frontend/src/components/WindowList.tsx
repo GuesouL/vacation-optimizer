@@ -15,9 +15,9 @@ export default function WindowList(props: {
 }) {
   return (
     <div className="mt-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">{props.title}</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">{props.title}</h2>
       {props.windows.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">{props.empty}</p>
+        <p className="mt-2 text-sm text-app-muted">{props.empty}</p>
       ) : (
         <ol className="mt-2 space-y-2">
           {props.windows.map((w) => {
@@ -30,15 +30,15 @@ export default function WindowList(props: {
                   aria-pressed={active}
                   className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                     active
-                      ? "border-teal-600 bg-teal-50 dark:bg-teal-950"
-                      : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-800"
+                      ? "border-app-accent bg-app-soft ring-1 ring-app-accent"
+                      : "border-app-line bg-app-surface hover:border-app-muted"
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-medium">{formatRange(w.start, w.end)}</span>
-                    {badge && <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{badge}</span>}
+                    {badge && <span className="text-sm font-semibold text-app-link">{badge}</span>}
                   </div>
-                  <div className="text-sm text-zinc-500">{props.describe(w)}</div>
+                  <div className="text-sm text-app-muted">{props.describe(w)}</div>
                 </button>
               </li>
             );

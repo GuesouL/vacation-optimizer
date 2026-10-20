@@ -70,17 +70,17 @@ export default function IcsImport(props: { calendarId: number; kind: CalendarKin
           accept=".ics,text/calendar"
           onChange={pick}
           disabled={busy}
-          className="mt-1 block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 dark:file:bg-zinc-800"
+          className="mt-1 block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-app-tile file:px-3 file:py-1.5"
         />
       </label>
-      {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-app-danger">{error}</p>}
 
       {rows && (
         <div className="mt-3">
           {rows.length === 0 ? (
-            <p className="text-sm text-zinc-500">No all-day or dated events found in that file.</p>
+            <p className="text-sm text-app-muted">No all-day or dated events found in that file.</p>
           ) : (
-            <ul className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 p-2 text-sm dark:border-zinc-800">
+            <ul className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-app-line bg-app-surface p-2 text-sm">
               {rows.map((r, i) => (
                 <li key={`${r.title}-${r.start_date}-${r.end_date}`} className="flex items-start gap-2 py-1">
                   <input
@@ -92,7 +92,7 @@ export default function IcsImport(props: { calendarId: number; kind: CalendarKin
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{r.title}</div>
-                    <div className="text-xs text-zinc-500">
+                    <div className="text-xs text-app-muted">
                       {formatRange(r.start_date, r.end_date)}
                       {r.timed && " · has a time of day"}
                     </div>
@@ -101,7 +101,7 @@ export default function IcsImport(props: { calendarId: number; kind: CalendarKin
                     value={r.effect}
                     onChange={(e) => change(i, { effect: e.target.value as Row["effect"] })}
                     aria-label={`What ${r.title} means`}
-                    className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                    className="rounded border border-app-line bg-app-surface px-1 py-0.5 text-xs"
                   >
                     <option value="DAY_OFF">{effectLabel("DAY_OFF", props.kind)}</option>
                     <option value="BUSY">{effectLabel("BUSY", props.kind)}</option>
@@ -110,16 +110,16 @@ export default function IcsImport(props: { calendarId: number; kind: CalendarKin
               ))}
             </ul>
           )}
-          {note && <p className="mt-2 text-xs text-zinc-500">{note}</p>}
+          {note && <p className="mt-2 text-xs text-app-muted">{note}</p>}
           <div className="mt-2 flex gap-2 text-sm">
             <button
               onClick={save}
               disabled={busy || ticked === 0}
-              className="rounded bg-teal-700 px-3 py-1.5 font-medium text-white disabled:opacity-50"
+              className="rounded bg-app-btn px-3 py-1.5 font-medium text-app-on-btn disabled:opacity-50"
             >
               Add {ticked} selected
             </button>
-            <button onClick={() => setRows(null)} className="px-2 text-zinc-500 underline">Discard</button>
+            <button onClick={() => setRows(null)} className="px-2 text-app-muted underline">Discard</button>
           </div>
         </div>
       )}

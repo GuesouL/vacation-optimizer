@@ -41,21 +41,21 @@ export default function Home() {
   return (
     <main className="mx-auto w-full max-w-md px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Vacation Optimizer</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+      <p className="mt-2 text-app-muted">
         Find the most days off for the fewest PTO days.
       </p>
 
       {status === "unauthenticated" ? (
         <button
           onClick={() => signIn()}
-          className="mt-8 w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800"
+          className="mt-8 w-full rounded-lg bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover"
         >
           Sign in to start
         </button>
       ) : error ? (
         <div className="mt-8"><ErrorNote>{error}</ErrorNote></div>
       ) : !me ? (
-        <p className="mt-8 text-zinc-500">Loading…</p>
+        <p className="mt-8 text-app-muted">Loading…</p>
       ) : (
         <ProfileForm
           initialName={me.name}

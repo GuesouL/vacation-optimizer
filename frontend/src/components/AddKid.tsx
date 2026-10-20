@@ -68,14 +68,14 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="mt-2 text-sm font-medium text-teal-700 underline dark:text-teal-400">
+      <button onClick={() => setOpen(true)} className="mt-2 text-sm font-medium text-app-link underline">
         + Add a kid
       </button>
     );
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 space-y-2 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+    <form onSubmit={submit} className="mt-3 space-y-2 rounded-lg border border-app-line bg-app-surface p-3 text-sm">
       <label className="block">
         <span className="font-medium">Kid&apos;s first name</span>
         <input
@@ -83,7 +83,7 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
           maxLength={100}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          className="mt-1 block w-full rounded border border-app-line bg-app-surface px-2 py-1"
         />
       </label>
       <label className="block">
@@ -92,7 +92,7 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
           required
           value={schoolId}
           onChange={(e) => setSchoolId(e.target.value)}
-          className="mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          className="mt-1 block w-full rounded border border-app-line bg-app-surface px-2 py-1"
         >
           {schools.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
@@ -100,15 +100,15 @@ export default function AddKid({ groupId, onAdded }: { groupId: number; onAdded:
           <option value={CUSTOM}>My school isn&apos;t listed (I&apos;ll enter its dates)</option>
         </select>
       </label>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-app-muted">
         Not listed? Pick the last choice, then type in the school breaks or import a calendar file.
       </p>
-      {error && <p role="alert" className="text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-app-danger">{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" disabled={saving || !schoolId} className="rounded bg-teal-700 px-3 py-1.5 font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={saving || !schoolId} className="rounded bg-app-btn px-3 py-1.5 font-medium text-app-on-btn disabled:opacity-50">
           {saving ? "Adding…" : "Add"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="px-2 text-zinc-500 underline">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} className="px-2 text-app-muted underline">Cancel</button>
       </div>
     </form>
   );

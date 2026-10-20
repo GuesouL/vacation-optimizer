@@ -35,7 +35,7 @@ function Icon({ tab, className }: { tab: Tab; className: string }) {
 /** Laptop and up: the four tabs as one centered pill row in the header. */
 export function TabNav({ current, onChange }: Props) {
   return (
-    <nav aria-label="Plan sections" className="hidden rounded-xl bg-app-line/60 p-1 md:inline-flex">
+    <nav aria-label="Plan sections" className="hidden rounded-xl bg-app-tile p-1 md:inline-flex">
       {TABS.map((t) => (
         <button
           key={t.id}
@@ -66,7 +66,7 @@ export function TabBar({ current, onChange }: Props) {
           onClick={() => onChange(t.id)}
           aria-current={current === t.id ? "page" : undefined}
           className={`flex flex-col items-center gap-0.5 py-2 text-xs ${
-            current === t.id ? "font-semibold text-app-accent" : "text-app-muted"
+            current === t.id ? "font-semibold text-app-soft-ink" : "text-app-muted"
           }`}
         >
           <Icon tab={t.id} className="h-6 w-6" />

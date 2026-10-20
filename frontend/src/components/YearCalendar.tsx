@@ -22,18 +22,20 @@ const MONTH = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric",
 const HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 
 /**
- * Twelve mini months. Holidays are marked, the selected trip is shaded, saved trips are
- * outlined, and school breaks (blue) and busy days (red) show as a bar along the top.
+ * Twelve mini months. Holidays get a dot, the selected trip is shaded (PTO days darker),
+ * saved trips are tinted, and school breaks (thin pink bar) and busy days (thick red bar)
+ * show along the top. Bars and dots keep a ring in the card color so they stay visible
+ * on top of a shaded trip.
  */
 export default function YearCalendar({ start, holidays, workWeek, selected, saved = [], marks }: Props) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {next12Months(start).map(({ year, month }) => (
-        <section key={`${year}-${month}`} aria-label={MONTH.format(Date.UTC(year, month - 1, 1))}>
+        <section key={`${year}-${month}`} className="rounded-xl bg-app-surface p-3" aria-label={MONTH.format(Date.UTC(year, month - 1, 1))}>
           <h3 className="mb-2 text-sm font-semibold">{MONTH.format(Date.UTC(year, month - 1, 1))}</h3>
           <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
             {HEADERS.map((h, i) => (
-              <div key={i} className="pb-1 text-zinc-400">{h}</div>
+              <div key={i} className="pb-1 text-app-muted">{h}</div>
             ))}
             {monthGrid(year, month).flat().map((day, i) => {
               if (!day) return <div key={i} />;
@@ -50,21 +52,21 @@ export default function YearCalendar({ start, holidays, workWeek, selected, save
                   className={[
                     "relative rounded py-1 tabular-nums",
                     inTrip
-                      ? dayOff ? "bg-teal-600 text-white" : "bg-teal-800 font-semibold text-white"
-                      : dayOff ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400" : "",
-                    inSaved ? "ring-1 ring-inset ring-teal-600" : "",
+                      ? dayOff ? "bg-app-accent text-app-on-accent" : "bg-app-strong font-semibold text-app-on-strong"
+                      : inSaved ? "bg-app-soft font-medium text-app-soft-ink"
+                      : dayOff ? "bg-app-tile text-app-muted" : "",
                     day < start ? "opacity-30" : "",
                   ].join(" ")}
                 >
                   {Number(day.slice(8))}
                   {mark && (
-                    <span className="absolute inset-x-1 top-0 flex h-1 gap-px">
-                      {mark.off.length > 0 && <span className="flex-1 rounded-full bg-sky-500 ring-1 ring-white/80" />}
-                      {mark.busy.length > 0 && <span className="flex-1 rounded-full bg-rose-500 ring-1 ring-white/80" />}
+                    <span className="absolute inset-x-1 top-0 flex items-start gap-px">
+                      {mark.off.length > 0 && <span className="h-[3px] flex-1 rounded-full bg-app-school ring-1 ring-app-surface" />}
+                      {mark.busy.length > 0 && <span className="h-1 flex-1 rounded-full bg-app-busy ring-1 ring-app-surface" />}
                     </span>
                   )}
                   {holiday && (
-                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-500" />
+                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-app-holiday ring-1 ring-app-surface" />
                   )}
                 </div>
               );
