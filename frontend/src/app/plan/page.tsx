@@ -9,16 +9,15 @@ import AddAdult from "@/components/AddAdult";
 import AddKid from "@/components/AddKid";
 import BreakDetail, { BreakSheet } from "@/components/BreakDetail";
 import { TabBar, TabNav } from "@/components/PlanTabs";
-import { BestPickCard, FreeCard, StretchCard, TripsCard } from "@/components/HomeCards";
+import BreakList, { type View } from "@/components/BreakList";
+import { BestPickCard, FreeCard, FreeSide, StretchCard, TripsCard } from "@/components/HomeCards";
+import HomeCalendar from "@/components/HomeCalendar";
 import MonthCalendar from "@/components/MonthCalendar";
 import PeopleList, { type Opened } from "@/components/PeopleList";
 import { ErrorNote } from "@/components/ProfileForm";
 import SharePanel from "@/components/SharePanel";
 import { textLink } from "@/components/ui";
-import WindowList from "@/components/WindowList";
-import YearCalendar from "@/components/YearCalendar";
 import { api, errorMessage, type Group, type Me, type PersonSchedule, type Search, type Trip, type Window } from "@/lib/api";
-import { describeCost } from "@/lib/costs";
 import { addDays, type ISODate, today } from "@/lib/dates";
 import { loadHidden, saveHidden } from "@/lib/preferences";
 import { describePtoLeft } from "@/lib/profile";
@@ -61,6 +60,7 @@ function Plan() {
   const [hidden, setHidden] = useState<number[]>(loadHidden); // people whose dates you chose not to draw
   const [tripsVersion, setTripsVersion] = useState(0); // bump after saving: no PTO changed, so no re-rank
   const [sheetOpen, setSheetOpen] = useState(false); // phones: the selected break's detail sheet
+  const [view, setView] = useState<View>("best_value"); // Breaks list: best value, longest, or the free ones
 
   // ?group=12 picks a group; otherwise your first one.
   const groupId = Number(params.get("group")) || me?.groups[0]?.id;
@@ -161,6 +161,14 @@ function Plan() {
     return phone;
   }
 
+  // The Free view lists no-PTO long weekends; the other two re-rank the search.
+  function changeView(next: View) {
+    setView(next);
+    if (next === "free") return setSelected(search?.free_long_weekends[0] ?? null);
+    if (next === sort) return setSelected(search?.windows[0] ?? null);
+    setSort(next); // the search effect re-selects the top break
+  }
+
   function openTab(next: Tab) {
     router.push(`/plan${tabQuery(params, next)}`);
   }
@@ -186,33 +194,19 @@ function Plan() {
   const solo = group.people.length === 1;
   // When your PTO renews (Jan 1 unless you set a date in Settings): bookings after it use next year's days.
   const renewal = nextRenewal(start, me.people.find((p) => p.id === me.self_person_id)?.pto_renews_on);
+  const ptoLine =
+    person?.pto_left != null
+      ? (person.pto_balance != null
+          ? `${person.pto_left} of ${person.pto_balance} PTO days left`
+          : describePtoLeft(person.pto_left, person.pto_balance)) +
+        // Trips after the renewal don't touch this year's number, so say where they went.
+        (person.pto_next_year ? ` · ${person.pto_next_year} booked from next year` : "")
+      : null;
   const planTitle = solo && person ? `${person.name}'s best breaks` : group.name;
   // PTO to plan with: yours alone; in a group, the lowest anyone has left, since that
   // person decides whether a trip fits everyone.
   const known = group.people.map((p) => p.pto_left).filter((n): n is number => n != null);
   const ptoBudget = solo ? (person?.pto_left ?? 0) : known.length ? Math.min(...known) : 0;
-
-  const sortToggle = (
-    <div role="group" aria-label="Sort" className="inline-flex rounded-lg bg-app-tile p-1 text-sm">
-      {(
-        [
-          ["best_value", "Best value"],
-          ["longest", "Longest trip"],
-        ] as const
-      ).map(([value, label]) => (
-        <button
-          key={value}
-          aria-pressed={sort === value}
-          onClick={() => setSort(value)}
-          className={`rounded-md px-3 py-1.5 font-medium ${
-            sort === value ? "bg-app-surface shadow-sm" : "text-app-muted"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 
   // Good breaks you haven't saved yet: tinted on the calendars and the ribbon.
   const picks = search.windows.filter((w) => !isSaved(trips, w.start, w.end));
@@ -234,13 +228,6 @@ function Plan() {
     </p>
   );
 
-  const calendar = (
-    <>
-      <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} picks={picks} marks={marks} />
-      {legend}
-    </>
-  );
-
   const detailProps = {
     groupId: group.id,
     trips,
@@ -249,51 +236,45 @@ function Plan() {
     marks,
     onSaved: () => setTripsVersion((v) => v + 1),
     earliest: start,
+    people: group.people,
+    schedules,
     onSeeHome: () => {
       setSheetOpen(false);
       openTab("home");
     },
   };
 
-  const ranked = (
-    <WindowList
-      title="Ranked suggestions"
-      empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
-      windows={search.windows}
-      selected={selected}
-      onSelect={showBreak}
-      describe={describeCost}
-      badge={(w) => (sort === "best_value" && w.score ? `${w.score.toFixed(1)}×` : null)}
-    />
-  );
-
   const tabs = {
     // Home: how far your PTO goes, when everyone's free (groups only), what you've saved,
     // and the single best thing to book next. On a laptop "Everyone's free" becomes a sidebar.
     home: (
-      <div className={`mx-auto grid gap-6 md:items-start ${solo ? "max-w-xl" : "max-w-4xl md:grid-cols-[1fr_20rem]"}`}>
-        <StretchCard
-          windows={search.windows}
-          budget={ptoBudget}
-          balance={person?.pto_balance ?? null}
-          left={person?.pto_left ?? null}
-          solo={solo}
-          onSee={() => openTab("breaks")}
-        />
-        {!solo && (
-          <aside className="md:sticky md:top-6 md:col-start-2 md:row-span-2 md:row-start-1">
-            <FreeCard
-              windows={search.windows}
-              people={group.people.map((p) => p.name)}
-              holidays={holidays}
-              marks={marks}
-              onPick={(w) => {
-                if (!showBreak(w)) openTab("breaks"); // laptops: its detail panel is on Breaks
-              }}
-            />
-          </aside>
-        )}
-                <div className="grid gap-6 md:col-start-1">
+      <div
+        className={`mx-auto grid max-w-xl gap-6 md:max-w-none md:items-start ${
+          solo ? "md:grid-cols-[1fr_1.15fr]" : "md:grid-cols-[1fr_1.15fr_15.5rem]"
+        }`}
+      >
+        <div className="grid content-start gap-6">
+          <StretchCard
+            windows={search.windows}
+            budget={ptoBudget}
+            balance={person?.pto_balance ?? null}
+            left={person?.pto_left ?? null}
+            solo={solo}
+            onSee={() => openTab("breaks")}
+          />
+          {!solo && (
+            <div className="md:hidden">
+              <FreeCard
+                windows={search.windows}
+                people={group.people.map((p) => p.name)}
+                holidays={holidays}
+                marks={marks}
+                onPick={(w) => {
+                  if (!showBreak(w)) openTab("breaks"); // laptops: its detail panel is on Breaks
+                }}
+              />
+            </div>
+          )}
           <TripsCard
             groupId={group.id}
             trips={trips}
@@ -312,33 +293,57 @@ function Plan() {
             See all breaks →
           </button>
         </div>
+        {/* Laptops: the calendar in the middle, everyone's free on the right. */}
+        <HomeCalendar
+          start={start}
+          focus={picks[0]?.start ?? null}
+          holidays={holidays}
+          workWeek={workWeek}
+          saved={trips}
+          picks={picks}
+          marks={marks}
+          legend={legend}
+          onOpen={() => openTab("calendar")}
+        />
+        {!solo && (
+          <FreeSide
+            windows={search.windows}
+            people={group.people.map((p) => p.name)}
+            holidays={holidays}
+            marks={marks}
+            onPick={(w) => {
+              setSelected(w);
+              openTab("breaks");
+            }}
+          />
+        )}
       </div>
     ),
 
     // Breaks: the full lists. On a laptop the calendar sits beside them so a pick shows its dates.
     breaks: (
-      <div className="grid gap-10 md:grid-cols-[22rem_1fr]">
+      <div className="mx-auto grid max-w-xl gap-6 md:max-w-none md:grid-cols-[19rem_1fr] md:items-start">
         <section aria-label="Suggestions">
-          {sortToggle}
-          {ranked}
-          <WindowList
-            title="Free long weekends"
-            empty="None in this range."
-            windows={search.free_long_weekends}
+          <BreakList
+            view={view}
+            onView={changeView}
+            windows={search.windows}
+            free={search.free_long_weekends}
             selected={selected}
+            trips={trips}
+            holidays={holidays}
+            marks={marks}
+            empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
             onSelect={showBreak}
-            describe={describeCost}
-            badge={() => null}
           />
         </section>
-        {/* Laptops: list on the left, the picked break and the year on the right. */}
-        <section aria-label="Break details and calendar" className="hidden md:block">
-          {selected && (
-            <div className="mb-8 rounded-2xl bg-app-surface p-4 shadow-sm">
-              <BreakDetail key={`${selected.start}-${selected.end}`} window={selected} {...detailProps} />
-            </div>
+        {/* Laptops: the picked break, its days, and who's free. Phones open it as a sheet. */}
+        <section aria-label="Break details" className="hidden rounded-2xl border border-app-line bg-app-surface p-5 md:sticky md:top-6 md:block">
+          {selected ? (
+            <BreakDetail key={`${selected.start}-${selected.end}`} window={selected} {...detailProps} />
+          ) : (
+            <p className="text-sm text-app-muted">Pick a break to see its days and who&apos;s free.</p>
           )}
-          {calendar}
         </section>
       </div>
     ),
@@ -346,14 +351,27 @@ function Plan() {
     // Calendar: the year ribbon, then a month at a time (three on laptops); tap a day for its details.
     calendar: (
       <section aria-label="Calendar" className="mx-auto max-w-xl md:max-w-none">
-        <MonthCalendar start={start} holidays={holidays} workWeek={workWeek} saved={trips} picks={picks} marks={marks} />
-        {legend}
+        <MonthCalendar
+          start={start}
+          holidays={holidays}
+          workWeek={workWeek}
+          saved={trips}
+          picks={picks}
+          marks={marks}
+          people={schedules.filter((s) => s.items.length > 0).map((s) => ({
+            id: s.person_id,
+            name: group.people.find((p) => p.id === s.person_id)?.name ?? "Someone",
+            shown: !hidden.includes(s.person_id),
+          }))}
+          onToggle={toggleDates}
+          legend={legend}
+        />
       </section>
     ),
 
     // People: who's in the plan, their schedules, and adding or sharing.
     people: (
-      <div className="mx-auto max-w-xl">
+      <div className="mx-auto max-w-xl md:max-w-none">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">Who&apos;s going</h2>
         <div className="mt-2">
           <PeopleList
@@ -388,54 +406,52 @@ function Plan() {
 
   return (
     // Bottom padding on phones keeps the last item clear of the tab bar.
-    <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-8 md:pb-10 md:pt-10">
-      <header className="grid grid-cols-[1fr_auto] items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
-        <div>
-          {/* Phones name the tab you're on (the tab bar is at the bottom); laptops keep the plan's name. */}
-          <h1 className="font-display text-2xl font-bold tracking-tight md:text-3xl">
-            <span className="md:hidden">{tab === "home" ? planTitle : TABS.find((t) => t.id === tab)?.label}</span>
-            <span className="hidden md:inline">{planTitle}</span>
-          </h1>
-          {person?.pto_left != null && (
-            <p className="mt-0.5 text-sm text-app-muted">
-              {person.pto_balance != null
-                ? `${person.pto_left} of ${person.pto_balance} PTO days left`
-                : describePtoLeft(person.pto_left, person.pto_balance)}
-              {/* Trips after the renewal don't touch this year's number, so say where they went. */}
-              {person.pto_next_year ? ` · ${person.pto_next_year} booked from next year` : ""}
-            </p>
-          )}
-        </div>
-        <div className="hidden md:block"><TabNav current={tab} onChange={openTab} /></div>
-        <div className="flex items-center justify-end gap-3 text-sm">
-          {me.groups.length > 1 && (
-            <select
-              aria-label="Plan"
-              value={group.id}
-              onChange={(e) => router.push(`/plan?group=${e.target.value}`)}
-              className="max-w-36 rounded-lg border border-app-line bg-app-surface px-2 py-1"
-            >
-              {me.groups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          )}
-          {/* Settings (and Sign out, inside it) behind one gear, like the mockup. */}
-          <Link href="/settings" aria-label="Settings" className="grid h-10 w-10 place-items-center rounded-full text-app-muted hover:bg-app-surface hover:text-foreground">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-6 w-6">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-            </svg>
-          </Link>
+    <div className="pb-28 md:pb-10">
+      {/* Laptops: a full-width band, plan name left, tabs centered, PTO left and the gear right. */}
+      <header className="md:border-b md:border-app-line md:bg-app-surface">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-4 px-4 pt-8 md:grid-cols-[1fr_auto_1fr] md:py-3 md:pt-3">
+          <div>
+            {/* Phones name the tab you're on (the tab bar is at the bottom); laptops keep the plan's name. */}
+            <h1 className="font-display text-2xl font-bold tracking-tight md:text-xl">
+              <span className="md:hidden">{tab === "home" ? planTitle : TABS.find((t) => t.id === tab)?.label}</span>
+              <span className="hidden md:inline">{planTitle}</span>
+            </h1>
+            {ptoLine && <p className="mt-0.5 text-sm text-app-muted md:hidden">{ptoLine}</p>}
+          </div>
+          <div className="hidden md:block"><TabNav current={tab} onChange={openTab} /></div>
+          <div className="flex items-center justify-end gap-3 text-sm">
+            {ptoLine && <span className="hidden text-app-muted md:inline">{ptoLine}</span>}
+            {me.groups.length > 1 && (
+              <select
+                aria-label="Plan"
+                value={group.id}
+                onChange={(e) => router.push(`/plan?group=${e.target.value}`)}
+                className="max-w-36 rounded-lg border border-app-line bg-app-surface px-2 py-1"
+              >
+                {me.groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            )}
+            {/* Settings (and Sign out, inside it) behind one gear, like the mockup. */}
+            <Link href="/settings" aria-label="Settings" className="grid h-10 w-10 place-items-center rounded-full text-app-muted hover:bg-app-surface hover:text-foreground">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-6 w-6">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+              </svg>
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="mt-8">{tabs[tab]}</div>
+      <main className="mx-auto w-full max-w-6xl px-4 pt-8">
+        {tabs[tab]}
+      </main>
 
       <TabBar current={tab} onChange={openTab} />
       {selected && (
         <BreakSheet window={selected} open={sheetOpen} onClose={() => setSheetOpen(false)} {...detailProps} />
       )}
-    </main>
+    </div>
   );
 }

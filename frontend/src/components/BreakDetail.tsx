@@ -4,12 +4,14 @@ import { useState } from "react";
 
 import Sheet from "@/components/Sheet";
 import { MonthGrid } from "@/components/YearCalendar";
-import { api, errorMessage, type Trip, type Window } from "@/lib/api";
-import { daysIn, monthsOf, ptoDays, stretchTo, takeOffNote } from "@/lib/breaks";
-import { describeCost } from "@/lib/costs";
+import { api, errorMessage, type Group, type PersonSchedule, type Trip, type Window } from "@/lib/api";
+import { daysIn, monthsOf, ptoDays, stretchTo, takeOffNote, whyText } from "@/lib/breaks";
 import { addDays, formatRange, type ISODate } from "@/lib/dates";
+import { ptoCost } from "@/lib/stretch";
+import { chip } from "@/components/ui";
 import type { DayMark } from "@/lib/schedule";
 import { isSaved } from "@/lib/trips";
+import { whoIsFree } from "@/lib/whofree";
 
 type Props = {
   window: Window;
@@ -21,13 +23,15 @@ type Props = {
   onSaved: () => void;
   onSeeHome: () => void; // after saving: take me to the trip on Home
   earliest: ISODate; // today: a stretched trip can't start before it
+  people: Group["people"]; // for "Who's free"
+  schedules: PersonSchedule[];
 };
 
 /**
  * One break up close: its month(s), which days you'd take off, and a Save button.
  * A side panel on laptops; inside BreakSheet on phones.
  */
-export default function BreakDetail({ window: w, groupId, trips, holidays, workWeek, marks, onSaved, onSeeHome, earliest }: Props) {
+export default function BreakDetail({ window: w, groupId, trips, holidays, workWeek, marks, onSaved, onSeeHome, earliest, people, schedules }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The dates you'd save: the suggestion, or the suggestion stretched with extra PTO days.
@@ -52,19 +56,35 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
     onSaved();
   }
 
+  const why = whyText(w.start, w.end, holidays, marks);
+  const who = whoIsFree(
+    range,
+    w,
+    people.map((p) => ({ id: p.id, name: p.name, kind: p.kind, mine: p.mine, workWeek: p.work_week })),
+    schedules,
+    holidays,
+  );
+  // The headline cost: the search's number for the suggestion, your own work week once stretched.
+  const costChip = `${stretched ? pto.length : ptoCost(w)} PTO → ${days} days off`;
+
   return (
     <div>
-      <h2 className="text-lg font-semibold">{formatRange(range.start, range.end)}</h2>
-      <p className="text-sm text-app-muted">
-        {stretched
-          ? // Only your own work week is known here, so a stretched trip shows your cost.
-            `${days} days off · ${pto.length} of your PTO days, ${extraPto(pto.length)}`
-          : describeCost(w)}
-      </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div>
+          <h2 className="font-display text-xl font-bold md:text-[1.6rem] md:leading-tight">{formatRange(range.start, range.end)}</h2>
+          <p className="text-sm text-app-muted">{why ?? `${days} days off`}</p>
+        </div>
+        <span className={`${chip} mt-1`}>{costChip}</span>
+      </div>
+      {stretched && (
+        // Only your own work week is known here, so a stretched trip shows your cost.
+        <p className="mt-1 text-sm text-app-muted">{`${pto.length} of your PTO days, ${extraPto(pto.length)}`}</p>
+      )}
+      <div className={`mt-3 grid gap-4 ${monthsOf(range.start, range.end).length > 1 ? "md:grid-cols-2" : "md:max-w-sm"}`}>
         {monthsOf(range.start, range.end).map(({ year, month }) => (
           <MonthGrid
             key={`${year}-${month}`}
+            large
             year={year}
             month={month}
             holidays={holidays}
@@ -76,6 +96,19 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
         ))}
       </div>
       <p className="mt-3 text-sm">{takeOffNote(days, pto)}</p>
+      <p className="mt-2 text-sm">
+        <b className="font-bold">Who&apos;s free:</b>{" "}
+        {who.map((r) => (
+          <span key={r.name} className="mr-3 inline-block whitespace-nowrap">
+            <span aria-hidden="true" className={`font-bold ${r.ok === false ? "text-app-busy" : r.ok ? "text-app-school" : "text-app-muted"}`}>
+              {r.ok === false ? "✗" : r.ok ? "✓" : "?"}
+            </span>
+            <span className="sr-only">{r.ok === false ? " Not free:" : r.ok ? " Free:" : " Not checked:"}</span>{" "}
+            {r.name}
+            {r.note && <span className="text-app-muted"> ({r.note})</span>}
+          </span>
+        ))}
+      </p>
       {!saved && (
         // Want a longer trip than the best-value pick? Add PTO days on either side.
         <div className="mt-3">
@@ -101,7 +134,7 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
           <p role="status" className="mt-3 text-sm font-medium">✓ Saved to Your trips. Book your PTO from there.</p>
           <button
             onClick={onSeeHome}
-            className="mt-2 w-full rounded-xl border border-app-line px-4 py-2.5 font-medium"
+            className="mt-2 w-full rounded-xl border border-app-line px-4 py-2.5 font-medium md:max-w-64"
           >
             See it on Home
           </button>
@@ -110,7 +143,7 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
         <button
           onClick={save}
           disabled={busy}
-          className="mt-3 w-full rounded-xl bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover disabled:opacity-50"
+          className="mt-3 w-full rounded-xl bg-app-btn px-4 py-2.5 font-semibold text-app-on-btn hover:bg-app-btn-hover disabled:opacity-50 md:max-w-64"
         >
           {busy ? "Saving…" : "Save this trip"}
         </button>

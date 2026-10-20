@@ -155,6 +155,43 @@ export function FreeCard(props: {
 }
 
 /**
+ * Laptop Home, right column: the next few breaks everyone can take together, each with
+ * why it works. (Phones get the shorter FreeCard under Stretch.)
+ */
+export function FreeSide(props: {
+  windows: Window[];
+  people: string[];
+  holidays: Map<ISODate, string>;
+  marks: Map<ISODate, DayMark>;
+  onPick: (w: Window) => void;
+}) {
+  const next = soonest(props.windows);
+  return (
+    <aside aria-label="Everyone's free" className={`hidden md:block ${card}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold">Everyone&apos;s free</h2>
+        <Avatars names={props.people} />
+      </div>
+      {next.length === 0 ? (
+        <p className="mt-2 text-sm text-app-muted">No break fits everyone in the next 12 months.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-app-line">
+          {next.map((w) => (
+            <li key={`${w.start}-${w.end}`} className="py-3 first:pt-0 last:pb-0">
+              <button onClick={() => props.onPick(w)} className="grid w-full justify-items-start gap-1 text-left">
+                <span className="font-bold">{formatRange(w.start, w.end)}</span>
+                <span className="text-sm text-app-muted">{whyText(w.start, w.end, props.holidays, props.marks) ?? `${w.days} days off`}</span>
+                <span className={ptoCost(w) ? chip : chipDim}>{ptoCost(w) ? `${ptoCost(w)} PTO each` : "No PTO"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </aside>
+  );
+}
+
+/**
  * Your saved and booked trips. Tap one for its sheet: book your PTO, cancel the
  * booking, or delete it. Booking changes PTO, so the parent re-ranks after (`onPtoChanged`).
  */
