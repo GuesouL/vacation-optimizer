@@ -3,13 +3,18 @@ best breaks." Kept apart from how it's delivered (email, push or an in-app
 card), so the content is built and tested once whichever way it's sent."""
 
 import calendar
+import hmac
+import logging
+import os
 from datetime import date, timedelta
+from typing import Annotated, Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 
-from . import orm
-from .access import can_see_group, manages, not_found
+from . import mailer, orm
+from .access import can_see_group, manages, my_groups, not_found
 from .auth import CurrentAccount
 from .db import DB
 from .loader import pto_left
@@ -18,6 +23,7 @@ from .search import SearchParams, load_group, search_group
 from .trips import Today
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 PICKS = 3  # breaks per reminder: enough to choose from, short enough to read
 
@@ -68,7 +74,7 @@ def short_range(w: WindowOut) -> str:
     return f"{w.start:%b} {w.start.day} – {w.end:%b} {w.end.day}"
 
 
-def digest_text(digest: DigestOut, plan_name: str) -> tuple[str, str]:
+def digest_text(digest: DigestOut, plan_name: str, link: str = "") -> tuple[str, str]:
     """Subject and plain-text body, for email or a push notification."""
     left = ", ".join(f"{p.name} {p.pto_left}" for p in digest.people)
     subject = f"{digest.month}: your best days off"
@@ -83,7 +89,8 @@ def digest_text(digest: DigestOut, plan_name: str) -> tuple[str, str]:
         lines += [f"• {short_range(w)}" for w in digest.free_weekends]
     if not digest.breaks and not digest.free_weekends:
         lines.append(f"No good breaks start in {digest.month}. We'll check again next month.")
-    lines += ["", f"Open {plan_name} to save one."]
+    lines += ["", f"Open {plan_name} to save one." + (f" {link}" if link else "")]
+    lines += ["", "You get this because you turned on monthly reminders in Settings. Turn them off there any time."]
     return subject, "\n".join(lines).strip()
 
 
@@ -94,3 +101,66 @@ def get_digest(group_id: int, account: CurrentAccount, session: DB, today: Today
     if group is None or not can_see_group(account, group):
         raise not_found(orm.Group, group_id)
     return build_digest(session, group, account, today)
+
+
+class ReminderSwitch(BaseModel):
+    enabled: bool
+
+
+@router.put("/me/reminders")
+def set_reminders(body: ReminderSwitch, account: CurrentAccount, session: DB) -> ReminderSwitch:
+    """Turn the monthly email on or off for yourself."""
+    account.reminders_on = body.enabled
+    session.commit()
+    return body
+
+
+class SendResult(BaseModel):
+    sent: int
+    failed: int
+
+
+def send_due(session, today: date, send: Callable[[str, str, str], None]) -> SendResult:
+    """Email every opted-in account that hasn't had this month's reminder yet.
+    One broken address must not stop everyone else, so each send is its own attempt."""
+    month = f"{today:%Y-%m}"
+    link = os.environ.get("APP_URL", "")
+    accounts = session.scalars(
+        select(orm.Account).where(
+            orm.Account.reminders_on,
+            (orm.Account.last_reminder.is_(None)) | (orm.Account.last_reminder != month),
+        )
+    ).all()
+    sent = failed = 0
+    for account in accounts:
+        groups = my_groups(session, account)
+        if not groups:
+            continue
+        group = groups[0]  # one email per person, about their first plan
+        try:
+            subject, body = digest_text(build_digest(session, group, account, today), group.name, link)
+            send(account.email, subject, body)
+        except Exception:
+            log.exception("reminder failed for account %s", account.id)
+            failed += 1
+            continue
+        account.last_reminder = month  # recorded only after the send worked, so a retry covers failures
+        session.commit()
+        sent += 1
+    return SendResult(sent=sent, failed=failed)
+
+
+@router.post("/internal/send-reminders")
+def send_reminders(
+    session: DB, today: Today, authorization: Annotated[str | None, Header()] = None
+) -> SendResult:
+    """Called once a month by a scheduler (see .github/workflows/reminders.yml).
+    Guarded by a shared secret, not a user login: no person is behind this call."""
+    secret = os.environ.get("CRON_SECRET")
+    if not secret:
+        raise HTTPException(500, "CRON_SECRET is not set on the server")  # fail closed
+    # compare_digest takes the same time however many characters match, so the
+    # secret can't be guessed one character at a time by timing responses.
+    if not hmac.compare_digest(authorization or "", f"Bearer {secret}"):
+        raise HTTPException(401, "Not allowed")
+    return send_due(session, today, mailer.send_email)

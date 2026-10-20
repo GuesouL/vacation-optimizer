@@ -9,6 +9,7 @@ Two roles in a group:
 from typing import Literal
 
 from fastapi import HTTPException
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from . import orm
@@ -24,6 +25,26 @@ def not_found(model, id: int) -> HTTPException:
 
 def manages(account: orm.Account, person: orm.Person) -> bool:
     return account.id in (person.managed_by_account_id, person.linked_account_id)
+
+
+def my_people_filter(account: orm.Account):
+    """Rows of Person that this account manages or is."""
+    return or_(
+        orm.Person.managed_by_account_id == account.id,
+        orm.Person.linked_account_id == account.id,
+    )
+
+
+def my_groups(session: Session, account: orm.Account) -> list[orm.Group]:
+    """Every group this account can open: ones it owns, plus ones one of its people is in."""
+    member_of = select(orm.GroupMember.group_id).join(orm.Person).where(my_people_filter(account))
+    return list(
+        session.scalars(
+            select(orm.Group)
+            .where(or_(orm.Group.owner_account_id == account.id, orm.Group.id.in_(member_of)))
+            .order_by(orm.Group.id)
+        )
+    )
 
 
 def my_person(session: Session, account: orm.Account, person_id: int) -> orm.Person:

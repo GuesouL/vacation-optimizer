@@ -96,6 +96,20 @@ will block the site from calling the API (CORS), and you'll see failed requests 
 If the page says it can't reach the server, open the browser console first: a CORS message means step 5,
 a 401 means the two `API_TOKEN_SECRET` values differ, a 500 saying the secret isn't set means Render is missing it.
 
+## 7. Monthly reminder email (optional)
+
+On the 25th of each month, people who turned on "Monthly email" in Settings get their PTO left and the best breaks starting next month.
+
+1. **Resend** (resend.com, free tier): create an account, then **API Keys** and **Create API Key**. Until you verify your own
+   domain, Resend only sends *from* `onboarding@resend.dev` and only *to* your own signup email, which is fine for a first test.
+2. **Render** environment variables on the API: `RESEND_API_KEY` (the key), `REMINDER_FROM` (e.g. `Vacation Optimizer <onboarding@resend.dev>`),
+   `CRON_SECRET` (a new random string: `openssl rand -base64 32`), and `APP_URL` (your Vercel address). Redeploy.
+3. **GitHub** repository secrets (Settings, Secrets and variables, Actions): `API_URL` (your Render address, no trailing slash) and the same `CRON_SECRET`.
+4. Test it: turn the switch on in Settings, then GitHub **Actions**, **monthly reminders**, **Run workflow**. Running it twice in one month
+   sends only once (each account remembers its last month).
+
+Why a GitHub schedule and not a timer inside the API: Render's free tier sleeps when idle, and a sleeping server can't keep time.
+
 ## What this doesn't cover yet
 
 - Database backups (Neon keeps short history on the free plan; export before anything risky).

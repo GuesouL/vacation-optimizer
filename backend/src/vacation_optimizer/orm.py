@@ -20,6 +20,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    false,
     func,
     literal_column,
     text,
@@ -66,6 +67,10 @@ class Account(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
     name: Mapped[str] = mapped_column(String(100))
+    # The monthly reminder email is opt-in: nobody gets mail they didn't ask for.
+    reminders_on: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # "2026-11" once that month's reminder went out, so a retried job can't send it twice.
+    last_reminder: Mapped[str | None] = mapped_column(String(7))
 
 
 class Person(Base):

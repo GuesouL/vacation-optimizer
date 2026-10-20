@@ -561,6 +561,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Reminders
+         * @description Turn the monthly email on or off for yourself.
+         */
+        put: operations["set_reminders_me_reminders_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/send-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Reminders
+         * @description Called once a month by a scheduler (see .github/workflows/reminders.yml).
+         *     Guarded by a shared secret, not a user login: no person is behind this call.
+         */
+        post: operations["send_reminders_internal_send_reminders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -775,6 +816,8 @@ export interface components {
             email: string;
             /** Name */
             name: string;
+            /** Reminders On */
+            reminders_on: boolean;
             /** Self Person Id */
             self_person_id: number | null;
             /** People */
@@ -971,6 +1014,11 @@ export interface components {
             /** Pto Carryover Max */
             pto_carryover_max?: number | null;
         };
+        /** ReminderSwitch */
+        ReminderSwitch: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** RenewsOn */
         RenewsOn: {
             /** Month */
@@ -1003,6 +1051,13 @@ export interface components {
             free_long_weekends: components["schemas"]["WindowOut"][];
             /** Message */
             message: string | null;
+        };
+        /** SendResult */
+        SendResult: {
+            /** Sent */
+            sent: number;
+            /** Failed */
+            failed: number;
         };
         /** SharedViewOut */
         SharedViewOut: {
@@ -2183,6 +2238,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DigestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_reminders_me_reminders_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderSwitch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderSwitch"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_reminders_internal_send_reminders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendResult"];
                 };
             };
             /** @description Validation Error */

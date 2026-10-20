@@ -17,6 +17,8 @@ from .access import (
     manages,
     my_group,
     my_person,
+    my_groups,
+    my_people_filter,
     not_found,
     owned_calendar,
     role_in,
@@ -81,28 +83,17 @@ def holidays(year: int) -> list[Holiday]:
 # --- Me -------------------------------------------------------------------
 
 
-def my_people_filter(account: orm.Account):
-    return or_(
-        orm.Person.managed_by_account_id == account.id,
-        orm.Person.linked_account_id == account.id,
-    )
-
-
 @app.get("/me")
 def me(account: CurrentAccount, session: DB) -> MeOut:
     """Who's signed in, the people they manage, and the groups they can open."""
     people = session.scalars(
         select(orm.Person).where(my_people_filter(account)).order_by(orm.Person.id)
     ).all()
-    member_of = select(orm.GroupMember.group_id).join(orm.Person).where(my_people_filter(account))
-    groups = session.scalars(
-        select(orm.Group)
-        .where(or_(orm.Group.owner_account_id == account.id, orm.Group.id.in_(member_of)))
-        .order_by(orm.Group.id)
-    ).all()
+    groups = my_groups(session, account)
     return MeOut(
         email=account.email,
         name=account.name,
+        reminders_on=account.reminders_on,
         self_person_id=next((p.id for p in people if p.linked_account_id == account.id), None),
         people=people,
         groups=[GroupSummary(id=g.id, name=g.name, role=role_in(account, g)) for g in groups],

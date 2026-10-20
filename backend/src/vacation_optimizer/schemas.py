@@ -285,6 +285,7 @@ class GroupSummary(BaseModel):
 class MeOut(BaseModel):
     email: str
     name: str
+    reminders_on: bool  # the monthly "free dates" email
     self_person_id: int | None  # None until they fill in their own profile
     people: list[PersonOut]  # everyone this account can edit, themselves included
     groups: list[GroupSummary]
