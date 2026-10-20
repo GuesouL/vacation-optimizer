@@ -11,7 +11,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import orm, schedule, sharing, trips
+from . import orm, reminders, schedule, sharing, trips
 from .access import (
     can_see_group,
     manages,
@@ -285,3 +285,4 @@ def optimize(
 app.include_router(sharing.router)
 app.include_router(trips.router)
 app.include_router(schedule.router)
+app.include_router(reminders.router)

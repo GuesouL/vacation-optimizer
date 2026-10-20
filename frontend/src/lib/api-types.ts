@@ -541,6 +541,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/groups/{group_id}/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Digest
+         * @description Next month's reminder for this plan, as you'd receive it.
+         */
+        get: operations["get_digest_groups__group_id__digest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -578,6 +598,17 @@ export interface components {
             /** Name */
             name: string;
             kind: components["schemas"]["CalendarKind"];
+        };
+        /** DigestOut */
+        DigestOut: {
+            /** Month */
+            month: string;
+            /** People */
+            people: components["schemas"]["PersonPTO"][];
+            /** Breaks */
+            breaks: components["schemas"]["WindowOut"][];
+            /** Free Weekends */
+            free_weekends: components["schemas"]["WindowOut"][];
         };
         /**
          * Effect
@@ -893,6 +924,13 @@ export interface components {
             pto_renews_on: components["schemas"]["RenewsOn"] | null;
             /** Pto Carryover Max */
             pto_carryover_max: number | null;
+        };
+        /** PersonPTO */
+        PersonPTO: {
+            /** Name */
+            name: string;
+            /** Pto Left */
+            pto_left: number;
         };
         /** PersonScheduleOut */
         PersonScheduleOut: {
@@ -2114,6 +2152,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonScheduleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_digest_groups__group_id__digest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestOut"];
                 };
             };
             /** @description Validation Error */

@@ -1723,6 +1723,51 @@
           }
         }
       }
+    },
+    "/groups/{group_id}/digest": {
+      "get": {
+        "summary": "Get Digest",
+        "description": "Next month's reminder for this plan, as you'd receive it.",
+        "operationId": "get_digest_groups__group_id__digest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1830,6 +1875,43 @@
           "kind"
         ],
         "title": "CalendarOut"
+      },
+      "DigestOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonPTO"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "breaks": {
+            "items": {
+              "$ref": "#/components/schemas/WindowOut"
+            },
+            "type": "array",
+            "title": "Breaks"
+          },
+          "free_weekends": {
+            "items": {
+              "$ref": "#/components/schemas/WindowOut"
+            },
+            "type": "array",
+            "title": "Free Weekends"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "people",
+          "breaks",
+          "free_weekends"
+        ],
+        "title": "DigestOut"
       },
       "Effect": {
         "type": "string",
@@ -2612,6 +2694,24 @@
           "pto_carryover_max"
         ],
         "title": "PersonOut"
+      },
+      "PersonPTO": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "pto_left": {
+            "type": "integer",
+            "title": "Pto Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "pto_left"
+        ],
+        "title": "PersonPTO"
       },
       "PersonScheduleOut": {
         "properties": {
