@@ -1,13 +1,28 @@
 @import "tailwindcss";
 
+/*
+ * App color tokens. Components use these names (bg-app-surface, text-app-accent, ...)
+ * instead of fixed Tailwind colors, so a new palette is a change to this file only.
+ * The values below match the current look; the chosen palette replaces them later.
+ */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --app-surface: #ffffff;        /* cards, tab bars */
+  --app-line: #e4e4e7;           /* borders, dividers */
+  --app-muted: #71717a;          /* secondary text, inactive tabs */
+  --app-accent: #0f766e;         /* active tab, buttons */
+  --app-accent-soft: #f0fdfa;    /* active tab background */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-app-surface: var(--app-surface);
+  --color-app-line: var(--app-line);
+  --color-app-muted: var(--app-muted);
+  --color-app-accent: var(--app-accent);
+  --color-app-accent-soft: var(--app-accent-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,6 +31,11 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --app-surface: #18181b;
+    --app-line: #27272a;
+    --app-muted: #a1a1aa;
+    --app-accent: #2dd4bf;
+    --app-accent-soft: #042f2e;
   }
 }
 

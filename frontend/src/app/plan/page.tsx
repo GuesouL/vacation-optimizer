@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import AddAdult from "@/components/AddAdult";
 import AddKid from "@/components/AddKid";
+import { TabBar, TabNav } from "@/components/PlanTabs";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
 import ScheduleEditor from "@/components/ScheduleEditor";
@@ -19,6 +20,7 @@ import { addDays, type ISODate, today } from "@/lib/dates";
 import { loadHidden, saveHidden } from "@/lib/preferences";
 import { describePtoLeft } from "@/lib/profile";
 import { buildDayMarks } from "@/lib/schedule";
+import { parseTab, type Tab, tabQuery } from "@/lib/tabs";
 
 type Sort = "best_value" | "longest";
 
@@ -57,6 +59,8 @@ function Plan() {
 
   // ?group=12 picks a group; otherwise your first one.
   const groupId = Number(params.get("group")) || me?.groups[0]?.id;
+  // ?tab=calendar picks a tab. It lives in the URL so the back button and shared links keep it.
+  const tab = parseTab(params.get("tab"));
 
   // Who you are, and the holidays, once you're signed in.
   useEffect(() => {
@@ -143,6 +147,10 @@ function Plan() {
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
 
+  function openTab(next: Tab) {
+    router.push(`/plan${tabQuery(params, next)}`);
+  }
+
   function signOutNow() {
     apiToken.clear();
     signOut({ redirectTo: "/" });
@@ -168,18 +176,197 @@ function Plan() {
 
   const solo = group.people.length === 1;
 
+  const sortToggle = (
+    <div role="group" aria-label="Sort" className="inline-flex rounded-lg bg-zinc-100 p-1 text-sm dark:bg-zinc-800">
+      {(
+        [
+          ["best_value", "Best value"],
+          ["longest", "Longest trip"],
+        ] as const
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          aria-pressed={sort === value}
+          onClick={() => setSort(value)}
+          className={`rounded-md px-3 py-1.5 font-medium ${
+            sort === value ? "bg-white shadow-sm dark:bg-zinc-950" : "text-zinc-500"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Up top in a tab, so the Save button sits next to the suggestion you just picked.
+  const savedTrips = (
+    <SavedTrips
+      groupId={group.id}
+      trips={trips}
+      selected={selected}
+      onSaved={() => setTripsVersion((v) => v + 1)}
+      onPtoChanged={() => setVersion((v) => v + 1)} // booked days change every cost: re-rank
+    />
+  );
+
+  const calendar = (
+    <>
+      <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} marks={marks} />
+      <p className="mt-4 flex flex-wrap gap-4 text-xs text-zinc-500">
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Holiday</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-600 align-middle" />Selected trip</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />Your PTO day</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded ring-1 ring-inset ring-teal-600 align-middle" />Saved trip</span>
+        {marks.size > 0 && (
+          <>
+            <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-sky-500 align-middle" />School break or day off</span>
+            <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-rose-500 align-middle" />Busy</span>
+          </>
+        )}
+      </p>
+    </>
+  );
+
+  const ranked = (
+    <WindowList
+      title="Ranked suggestions"
+      empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
+      windows={search.windows}
+      selected={selected}
+      onSelect={setSelected}
+      describe={describeCost}
+      badge={(w) => (sort === "best_value" && w.score ? `${w.score.toFixed(1)}×` : null)}
+    />
+  );
+
+  const tabs = {
+    // Home: what you've saved, and the single best thing to book next.
+    home: (
+      <div className="mx-auto max-w-xl">
+        {savedTrips}
+        <WindowList
+          title="Best next pick"
+          empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
+          windows={search.windows.slice(0, 1)}
+          selected={selected}
+          onSelect={setSelected}
+          describe={describeCost}
+          badge={() => null}
+        />
+        <button onClick={() => openTab("breaks")} className="mt-4 text-sm font-medium text-app-accent">
+          See all breaks →
+        </button>
+      </div>
+    ),
+
+    // Breaks: the full lists. On a laptop the calendar sits beside them so a pick shows its dates.
+    breaks: (
+      <div className="grid gap-10 md:grid-cols-[22rem_1fr]">
+        <section aria-label="Suggestions">
+          {sortToggle}
+          {savedTrips}
+          {ranked}
+          <WindowList
+            title="Free long weekends"
+            empty="None in this range."
+            windows={search.free_long_weekends}
+            selected={selected}
+            onSelect={setSelected}
+            describe={describeCost}
+            badge={() => null}
+          />
+        </section>
+        <section aria-label="Year calendar" className="hidden md:block">{calendar}</section>
+      </div>
+    ),
+
+    calendar: <section aria-label="Year calendar">{calendar}</section>,
+
+    // People: who's in the plan, their schedules, and adding or sharing.
+    people: (
+      <div className="mx-auto max-w-xl">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Who&apos;s going</h2>
+        <ul className="mt-2 space-y-1 text-sm">
+          {group.people.map((p) => (
+            <li key={p.id}>
+              <div className="flex items-center justify-between gap-2">
+                <span>
+                  {p.name}
+                  {p.mine && (
+                    <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
+                  )}
+                </span>
+                <span className="flex items-center gap-3">
+                  {schedules.find((s) => s.person_id === p.id)?.items.length ? (
+                    <label className="flex items-center gap-1 text-xs text-zinc-500">
+                      <input
+                        type="checkbox"
+                        checked={!hidden.includes(p.id)}
+                        onChange={(e) => toggleDates(p.id, e.target.checked)}
+                        aria-label={`Show ${p.name}'s dates on the calendar`}
+                      />
+                      Show
+                    </label>
+                  ) : null}
+                  {p.mine && p.kind === "ADULT" && (
+                    <Link href={`/settings?person=${p.id}`} className="text-xs text-teal-700 underline dark:text-teal-400">
+                      Edit
+                    </Link>
+                  )}
+                  {p.mine && (
+                    <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-teal-700 underline dark:text-teal-400">
+                      Schedule
+                    </button>
+                  )}
+                  {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
+                    <button onClick={() => remove(p.id)} className="text-xs text-zinc-500 underline">
+                      {p.mine ? "Take out" : "Remove"}
+                    </button>
+                  )}
+                </span>
+              </div>
+              {editing === p.id && (
+                <ScheduleEditor
+                  person={p}
+                  onChanged={() => setVersion((v) => v + 1)} // new dates change every suggestion: re-rank
+                  onClose={() => setEditing(null)}
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+        <AddKid
+          groupId={group.id}
+          onAdded={(kidId, enterSchedule) => {
+            setVersion((v) => v + 1);
+            if (enterSchedule) setEditing(kidId); // their school isn't listed: type its dates in next
+          }}
+        />
+        <AddAdult groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
+        {solo && (
+          <p className="mt-2 text-xs text-zinc-500">
+            Use Schedule next to a name for school breaks, games, or dates you can&apos;t take off.
+          </p>
+        )}
+        {group.role === "OWNER" && <SharePanel groupId={group.id} />}
+      </div>
+    ),
+  };
+
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    // Bottom padding on phones keeps the last item clear of the tab bar.
+    <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-8 md:pb-10 md:pt-10">
+      <header className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             {solo && person ? `${person.name}'s best breaks` : group.name}
           </h1>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-app-muted md:text-base">
             {person?.pto_left != null && `You have ${describePtoLeft(person.pto_left, person.pto_balance)} · `}next 12 months
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <TabNav current={tab} onChange={openTab} />
+        <div className="flex flex-wrap items-center gap-4 text-sm md:justify-end">
           {me.groups.length > 1 && (
             <label className="flex items-center gap-2">
               <span className="text-zinc-500">Plan</span>
@@ -203,141 +390,9 @@ function Plan() {
         </div>
       </header>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[22rem_1fr]">
-        <section aria-label="Suggestions">
-          <div role="group" aria-label="Sort" className="inline-flex rounded-lg bg-zinc-100 p-1 text-sm dark:bg-zinc-800">
-            {(
-              [
-                ["best_value", "Best value"],
-                ["longest", "Longest trip"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                aria-pressed={sort === value}
-                onClick={() => setSort(value)}
-                className={`rounded-md px-3 py-1.5 font-medium ${
-                  sort === value ? "bg-white shadow-sm dark:bg-zinc-950" : "text-zinc-500"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+      <div className="mt-8">{tabs[tab]}</div>
 
-          {/* Up top, so the Save button sits next to the suggestion you just picked. */}
-          <SavedTrips
-            groupId={group.id}
-            trips={trips}
-            selected={selected}
-            onSaved={() => setTripsVersion((v) => v + 1)}
-            onPtoChanged={() => setVersion((v) => v + 1)} // booked days change every cost: re-rank
-          />
-
-          <WindowList
-            title="Ranked suggestions"
-            empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
-            windows={search.windows}
-            selected={selected}
-            onSelect={setSelected}
-            describe={describeCost}
-            badge={(w) => (sort === "best_value" && w.score ? `${w.score.toFixed(1)}×` : null)}
-          />
-
-          <WindowList
-            title="Free long weekends"
-            empty="None in this range."
-            windows={search.free_long_weekends}
-            selected={selected}
-            onSelect={setSelected}
-            describe={describeCost}
-            badge={() => null}
-          />
-
-          <div className="mt-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Who&apos;s going</h2>
-            <ul className="mt-2 space-y-1 text-sm">
-              {group.people.map((p) => (
-                <li key={p.id}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>
-                      {p.name}
-                      {p.mine && (
-                        <span className="ml-2 text-xs text-zinc-500">{p.id === me.self_person_id ? "you" : "yours"}</span>
-                      )}
-                    </span>
-                    <span className="flex items-center gap-3">
-                      {schedules.find((s) => s.person_id === p.id)?.items.length ? (
-                        <label className="flex items-center gap-1 text-xs text-zinc-500">
-                          <input
-                            type="checkbox"
-                            checked={!hidden.includes(p.id)}
-                            onChange={(e) => toggleDates(p.id, e.target.checked)}
-                            aria-label={`Show ${p.name}'s dates on the calendar`}
-                          />
-                          Show
-                        </label>
-                      ) : null}
-                      {p.mine && p.kind === "ADULT" && (
-                        <Link href={`/settings?person=${p.id}`} className="text-xs text-teal-700 underline dark:text-teal-400">
-                          Edit
-                        </Link>
-                      )}
-                      {p.mine && (
-                        <button onClick={() => setEditing(editing === p.id ? null : p.id)} className="text-xs text-teal-700 underline dark:text-teal-400">
-                          Schedule
-                        </button>
-                      )}
-                      {(group.role === "OWNER" ? p.id !== me.self_person_id : p.mine) && (
-                        <button onClick={() => remove(p.id)} className="text-xs text-zinc-500 underline">
-                          {p.mine ? "Take out" : "Remove"}
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                  {editing === p.id && (
-                    <ScheduleEditor
-                      person={p}
-                      onChanged={() => setVersion((v) => v + 1)} // new dates change every suggestion: re-rank
-                      onClose={() => setEditing(null)}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-            <AddKid
-              groupId={group.id}
-              onAdded={(kidId, enterSchedule) => {
-                setVersion((v) => v + 1);
-                if (enterSchedule) setEditing(kidId); // their school isn't listed: type its dates in next
-              }}
-            />
-            <AddAdult groupId={group.id} onAdded={() => setVersion((v) => v + 1)} />
-            {solo && (
-              <p className="mt-2 text-xs text-zinc-500">
-                Use Schedule next to a name for school breaks, games, or dates you can&apos;t take off.
-              </p>
-            )}
-            {group.role === "OWNER" && <SharePanel groupId={group.id} />}
-          </div>
-        </section>
-
-        <section aria-label="Year calendar">
-          <YearCalendar start={start} holidays={holidays} workWeek={workWeek} selected={selected} saved={trips} marks={marks} />
-          <p className="mt-4 flex flex-wrap gap-4 text-xs text-zinc-500">
-            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Holiday</span>
-            <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-600 align-middle" />Selected trip</span>
-            <span><span className="mr-1 inline-block h-3 w-3 rounded bg-teal-800 align-middle" />Your PTO day</span>
-            <span><span className="mr-1 inline-block h-3 w-3 rounded ring-1 ring-inset ring-teal-600 align-middle" />Saved trip</span>
-            {marks.size > 0 && (
-              <>
-                <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-sky-500 align-middle" />School break or day off</span>
-                <span><span className="mr-1 inline-block h-1 w-3 rounded-full bg-rose-500 align-middle" />Busy</span>
-              </>
-            )}
-          </p>
-        </section>
-      </div>
+      <TabBar current={tab} onChange={openTab} />
     </main>
   );
 }
