@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysIn, describeDay, monthsOf, ptoDays, takeOffNote, whyText } from "./breaks";
+import { daysIn, describeDay, monthsOf, ptoDays, stretchTo, takeOffNote, whyText } from "./breaks";
 
 const weekdays = [0, 1, 2, 3, 4];
 
@@ -74,5 +74,29 @@ describe("whyText", () => {
     const marks = new Map([["2026-12-24", { off: ["Mia: Winter break (no school)"] }], ["2026-12-25", { off: ["Mia: Winter break (no school)"] }]]);
     expect(whyText("2026-12-24", "2027-01-01", holidays, marks)).toBe("Mia: Winter break (no school) + Christmas Day");
     expect(whyText("2026-11-27", "2026-11-29", holidays, new Map())).toBeNull();
+  });
+});
+
+describe("stretchTo", () => {
+  const thanksgiving = { start: "2026-11-26", end: "2026-11-29" };
+  const today = "2026-10-20";
+
+  it("moves the start back or the end out to the tapped day", () => {
+    expect(stretchTo(thanksgiving, "2026-11-23", thanksgiving, today)).toEqual({ start: "2026-11-23", end: "2026-11-29" });
+    expect(stretchTo(thanksgiving, "2026-12-01", thanksgiving, today)).toEqual({ start: "2026-11-26", end: "2026-12-01" });
+  });
+
+  it("trims an added end by one, but never inside the suggestion", () => {
+    const longer = { start: "2026-11-24", end: "2026-11-30" };
+    expect(stretchTo(longer, "2026-11-24", thanksgiving, today)).toEqual({ start: "2026-11-25", end: "2026-11-30" });
+    expect(stretchTo(longer, "2026-11-30", thanksgiving, today)).toEqual({ start: "2026-11-24", end: "2026-11-29" });
+    expect(stretchTo(thanksgiving, "2026-11-26", thanksgiving, today)).toBe(thanksgiving);
+    expect(stretchTo(thanksgiving, "2026-11-27", thanksgiving, today)).toBe(thanksgiving);
+  });
+
+  it("won't start before today or run past 31 days", () => {
+    expect(stretchTo(thanksgiving, "2026-10-19", thanksgiving, today)).toBe(thanksgiving);
+    expect(stretchTo(thanksgiving, "2026-12-27", thanksgiving, today)).toBe(thanksgiving); // 32 days
+    expect(stretchTo(thanksgiving, "2026-12-26", thanksgiving, today).end).toBe("2026-12-26"); // 31 days
   });
 });
