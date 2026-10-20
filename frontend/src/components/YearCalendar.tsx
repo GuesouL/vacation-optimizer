@@ -25,6 +25,7 @@ type GridProps = Omit<Props, "start"> & {
   onDay?: (day: ISODate) => void; // makes each day a button
   phoneTitle?: boolean; // off when a heading above already names the month on phones
   large?: boolean; // the Calendar tab's full-width month: no card, bigger cells
+  heading?: boolean; // false when something above already names the month
 };
 
 // Cell fills from the mockup: PTO days periwinkle, the rest of a trip marigold,
@@ -41,12 +42,16 @@ const FILL: Record<NonNullable<DayFill>, string> = {
  * Holidays get a dot at the top; school breaks (thin pink bar) and busy days
  * (thicker red bar) sit along the bottom; today has a ring.
  */
-export function MonthGrid({ year, month, start, holidays, workWeek, selected, saved = [], picks = [], marks, chosen, onDay, phoneTitle = true, large = false }: GridProps) {
+export function MonthGrid({ year, month, start, holidays, workWeek, selected, saved = [], picks = [], marks, chosen, onDay, phoneTitle = true, large = false, heading = true }: GridProps) {
   const name = MONTH.format(Date.UTC(year, month - 1, 1));
   const now = today();
   return (
     <section className={large ? "" : "rounded-xl bg-app-surface p-3"} aria-label={name}>
-      <h3 className={`mb-2 text-sm font-semibold ${phoneTitle ? "" : "hidden md:block"}`}>{name}</h3>
+      {heading && (
+        <h3 className={`mb-2 ${large ? "font-display text-base font-bold" : "text-sm font-semibold"} ${phoneTitle ? "" : "hidden md:block"}`}>
+          {name}
+        </h3>
+      )}
       <div className={`grid grid-cols-7 text-center tabular-nums ${large ? "gap-[3px] text-sm" : "gap-0.5 text-xs"}`}>
         {HEADERS.map((h, i) => (
           <div key={i} className="py-0.5 font-bold text-app-muted">{h}</div>

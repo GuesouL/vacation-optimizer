@@ -6,6 +6,7 @@ import ScheduleEditor from "@/components/ScheduleEditor";
 import Sheet from "@/components/Sheet";
 import type { Group, PersonSchedule } from "@/lib/api";
 import { personLine } from "@/lib/people";
+import { useIsPhone } from "@/lib/useIsPhone";
 
 type Member = Group["people"][number];
 export type Opened = { id: number; schedule: boolean } | null; // whose sheet, and is the schedule editor open
@@ -27,16 +28,20 @@ export default function PeopleList(props: {
   onChanged: () => void;
 }) {
   const { group, selfId, opened } = props;
+  const phone = useIsPhone();
   const person = group.people.find((p) => p.id === opened?.id);
+  // Laptops show the detail beside the list (the first person until you pick another); phones use a sheet.
+  const beside = phone ? undefined : (person ?? group.people[0]);
 
   return (
-    <>
+    <div className="md:grid md:grid-cols-[22rem_1fr] md:items-start md:gap-6">
       <ul className="divide-y divide-app-line overflow-hidden rounded-2xl bg-app-surface shadow-sm">
         {group.people.map((p) => (
           <li key={p.id}>
             <button
               onClick={() => props.onOpen({ id: p.id, schedule: false })}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-app-soft"
+              aria-pressed={beside?.id === p.id}
+              className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-app-soft ${beside?.id === p.id ? "bg-app-soft" : ""}`}
             >
               <Avatar name={p.name} />
               <span className="min-w-0 flex-1">
@@ -49,10 +54,18 @@ export default function PeopleList(props: {
         ))}
       </ul>
 
-      <Sheet open={!!person} onClose={() => props.onOpen(null)} label={person ? `${person.name}'s details` : "Details"}>
-        {person && <PersonDetail {...props} person={person} />}
-      </Sheet>
-    </>
+      {beside && (
+        <section aria-label={`${beside.name}'s details`} className="hidden rounded-2xl border border-app-line bg-app-surface p-5 md:block">
+          <PersonDetail key={beside.id} {...props} person={beside} />
+        </section>
+      )}
+
+      {phone && (
+        <Sheet open={!!person} onClose={() => props.onOpen(null)} label={person ? `${person.name}'s details` : "Details"}>
+          {person && <PersonDetail {...props} person={person} />}
+        </Sheet>
+      )}
+    </div>
   );
 }
 
