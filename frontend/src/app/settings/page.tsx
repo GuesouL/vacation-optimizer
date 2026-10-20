@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import ProfileForm, { ErrorNote } from "@/components/ProfileForm";
+import ReminderToggle from "@/components/ReminderToggle";
 import { api, apiToken, errorMessage, type Me } from "@/lib/api";
 import { settingsTarget, updateBody, type Profile } from "@/lib/profile";
 
@@ -89,6 +90,8 @@ function Settings() {
         />
       )}
 
+      {me && <ReminderToggle initial={me.reminders_on} />}
+
       {/* Sign out lives here now that the plan header is just a gear icon. */}
       {isSelf && (
         <button
@@ -96,7 +99,7 @@ function Settings() {
             apiToken.clear();
             signOut({ redirectTo: "/" });
           }}
-          className="mt-10 w-full rounded-lg border border-app-line bg-app-surface px-4 py-2.5 font-medium text-app-danger"
+          className="mt-6 w-full rounded-lg border border-app-line bg-app-surface px-4 py-2.5 font-medium text-app-danger"
         >
           Sign out
         </button>

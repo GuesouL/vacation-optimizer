@@ -1,0 +1,21 @@
+name: monthly reminders
+
+# Render's free tier sleeps, so the API can't run its own timer. GitHub's scheduler
+# wakes it once a month instead: the 25th, so the email previews the coming month.
+on:
+  schedule:
+    - cron: "0 16 25 * *"
+  workflow_dispatch: # the "Run workflow" button, for a test send
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      # Needs two repository secrets: API_URL (e.g. https://your-api.onrender.com) and CRON_SECRET.
+      # --retry covers the 30-60 seconds a sleeping free-tier server takes to wake up.
+      - name: Ask the API to send this month's reminders
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 120 --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST "${{ secrets.API_URL }}/internal/send-reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

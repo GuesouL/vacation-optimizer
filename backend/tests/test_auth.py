@@ -45,7 +45,7 @@ def test_first_request_creates_the_account(client):
     sign_in(client, "New.Person@Example.com")
     me = client.get("/me").json()
     assert me == {"email": "new.person@example.com", "name": "new.person",
-                  "self_person_id": None, "people": [], "groups": []}
+                  "reminders_on": False, "self_person_id": None, "people": [], "groups": []}
 
 
 def test_me_lists_my_people_and_groups(client):

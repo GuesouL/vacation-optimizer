@@ -1723,6 +1723,142 @@
           }
         }
       }
+    },
+    "/groups/{group_id}/digest": {
+      "get": {
+        "summary": "Get Digest",
+        "description": "Next month's reminder for this plan, as you'd receive it.",
+        "operationId": "get_digest_groups__group_id__digest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/reminders": {
+      "put": {
+        "summary": "Set Reminders",
+        "description": "Turn the monthly email on or off for yourself.",
+        "operationId": "set_reminders_me_reminders_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderSwitch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderSwitch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/internal/send-reminders": {
+      "post": {
+        "summary": "Send Reminders",
+        "description": "Called once a month by a scheduler (see .github/workflows/reminders.yml).\nGuarded by a shared secret, not a user login: no person is behind this call.",
+        "operationId": "send_reminders_internal_send_reminders_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1830,6 +1966,43 @@
           "kind"
         ],
         "title": "CalendarOut"
+      },
+      "DigestOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonPTO"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "breaks": {
+            "items": {
+              "$ref": "#/components/schemas/WindowOut"
+            },
+            "type": "array",
+            "title": "Breaks"
+          },
+          "free_weekends": {
+            "items": {
+              "$ref": "#/components/schemas/WindowOut"
+            },
+            "type": "array",
+            "title": "Free Weekends"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "people",
+          "breaks",
+          "free_weekends"
+        ],
+        "title": "DigestOut"
       },
       "Effect": {
         "type": "string",
@@ -2196,6 +2369,10 @@
             "type": "string",
             "title": "Name"
           },
+          "reminders_on": {
+            "type": "boolean",
+            "title": "Reminders On"
+          },
           "self_person_id": {
             "anyOf": [
               {
@@ -2226,6 +2403,7 @@
         "required": [
           "email",
           "name",
+          "reminders_on",
           "self_person_id",
           "people",
           "groups"
@@ -2613,6 +2791,24 @@
         ],
         "title": "PersonOut"
       },
+      "PersonPTO": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "pto_left": {
+            "type": "integer",
+            "title": "Pto Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "pto_left"
+        ],
+        "title": "PersonPTO"
+      },
       "PersonScheduleOut": {
         "properties": {
           "person_id": {
@@ -2722,6 +2918,19 @@
         "title": "PersonUpdate",
         "description": "Everything about a person that can change after setup. Replaces the old values:\nleaving the renewal fields out clears them. Who they are (adult or child, and\nwhether it's you) stays fixed."
       },
+      "ReminderSwitch": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "ReminderSwitch"
+      },
       "RenewsOn": {
         "properties": {
           "month": {
@@ -2812,6 +3021,24 @@
           "message"
         ],
         "title": "SearchOut"
+      },
+      "SendResult": {
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "title": "Sent"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sent",
+          "failed"
+        ],
+        "title": "SendResult"
       },
       "SharedViewOut": {
         "properties": {
