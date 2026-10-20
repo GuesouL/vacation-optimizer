@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// The fonts from the agreed mockup: Figtree for text, Bricolage Grotesque for headings and big numbers.
+const body = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
+const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Vacation Optimizer",
@@ -22,7 +16,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${body.variable} ${display.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>{children}</Providers>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysIn, describeDay, monthsOf, ptoDays, takeOffNote } from "./breaks";
+import { daysIn, describeDay, monthsOf, ptoDays, takeOffNote, whyText } from "./breaks";
 
 const weekdays = [0, 1, 2, 3, 4];
 
@@ -53,11 +53,26 @@ describe("describeDay", () => {
   it("lists the holiday, the break and anyone's dates", () => {
     expect(describeDay("2026-11-26", ctx)).toBe("Thanksgiving · Selected break");
     expect(describeDay("2026-11-27", ctx)).toBe("Selected break (your PTO day) · Mia: Fall break (no school)");
-    expect(describeDay("2026-12-24", ctx)).toBe("Saved trip");
+    expect(describeDay("2026-12-24", ctx)).toBe("Saved trip (your PTO day)");
+    expect(describeDay("2026-12-26", ctx)).toBe("Saved trip");
+  });
+
+  it("points out days inside a good pick", () => {
+    const withPick = { ...ctx, picks: [{ start: "2027-02-12", end: "2027-02-15" }] };
+    expect(describeDay("2027-02-13", withPick)).toBe("Part of a good pick");
   });
 
   it("says when nothing is on", () => {
     expect(describeDay("2026-12-01", ctx)).toBe("Nothing planned");
     expect(describeDay("2026-12-05", ctx)).toBe("Day off");
+  });
+});
+
+describe("whyText", () => {
+  it("names school breaks and holidays inside the break, at most two", () => {
+    const holidays = new Map([["2026-12-25", "Christmas Day"], ["2027-01-01", "New Year's Day"]]);
+    const marks = new Map([["2026-12-24", { off: ["Mia: Winter break (no school)"] }], ["2026-12-25", { off: ["Mia: Winter break (no school)"] }]]);
+    expect(whyText("2026-12-24", "2027-01-01", holidays, marks)).toBe("Mia: Winter break (no school) + Christmas Day");
+    expect(whyText("2026-11-27", "2026-11-29", holidays, new Map())).toBeNull();
   });
 });
