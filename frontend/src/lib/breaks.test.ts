@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysIn, monthsOf, ptoDays, takeOffNote } from "./breaks";
+import { daysIn, describeDay, monthsOf, ptoDays, takeOffNote } from "./breaks";
 
 const weekdays = [0, 1, 2, 3, 4];
 
@@ -38,5 +38,26 @@ describe("monthsOf and daysIn", () => {
 
   it("includes both ends", () => {
     expect(daysIn("2026-12-30", "2027-01-01")).toEqual(["2026-12-30", "2026-12-31", "2027-01-01"]);
+  });
+});
+
+describe("describeDay", () => {
+  const ctx = {
+    holidays: new Map([["2026-11-26", "Thanksgiving"]]),
+    workWeek: weekdays,
+    selected: { start: "2026-11-26", end: "2026-11-29" },
+    saved: [{ start_date: "2026-12-24", end_date: "2026-12-27" }],
+    marks: new Map([["2026-11-27", { off: ["Mia: Fall break (no school)"], busy: [] }]]),
+  };
+
+  it("lists the holiday, the break and anyone's dates", () => {
+    expect(describeDay("2026-11-26", ctx)).toBe("Thanksgiving · Selected break");
+    expect(describeDay("2026-11-27", ctx)).toBe("Selected break (your PTO day) · Mia: Fall break (no school)");
+    expect(describeDay("2026-12-24", ctx)).toBe("Saved trip");
+  });
+
+  it("says when nothing is on", () => {
+    expect(describeDay("2026-12-01", ctx)).toBe("Nothing planned");
+    expect(describeDay("2026-12-05", ctx)).toBe("Day off");
   });
 });
