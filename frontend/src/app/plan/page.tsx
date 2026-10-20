@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import AddAdult from "@/components/AddAdult";
 import AddKid from "@/components/AddKid";
 import { TabBar, TabNav } from "@/components/PlanTabs";
+import { FreeCard, StretchCard } from "@/components/HomeCards";
 import { ErrorNote } from "@/components/ProfileForm";
 import SavedTrips from "@/components/SavedTrips";
 import ScheduleEditor from "@/components/ScheduleEditor";
@@ -175,6 +176,10 @@ function Plan() {
   if (!me || !group || !search) return <Loading />;
 
   const solo = group.people.length === 1;
+  // PTO to plan with: yours alone; in a group, the lowest anyone has left, since that
+  // person decides whether a trip fits everyone.
+  const known = group.people.map((p) => p.pto_left).filter((n): n is number => n != null);
+  const ptoBudget = solo ? (person?.pto_left ?? 0) : known.length ? Math.min(...known) : 0;
 
   const sortToggle = (
     <div role="group" aria-label="Sort" className="inline-flex rounded-lg bg-app-tile p-1 text-sm">
@@ -240,22 +245,45 @@ function Plan() {
   );
 
   const tabs = {
-    // Home: what you've saved, and the single best thing to book next.
+    // Home: how far your PTO goes, when everyone's free (groups only), what you've saved,
+    // and the single best thing to book next. On a laptop "Everyone's free" becomes a sidebar.
     home: (
-      <div className="mx-auto max-w-xl">
-        {savedTrips}
-        <WindowList
-          title="Best next pick"
-          empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
-          windows={search.windows.slice(0, 1)}
-          selected={selected}
-          onSelect={setSelected}
-          describe={describeCost}
-          badge={() => null}
+      <div className={`mx-auto grid gap-6 md:items-start ${solo ? "max-w-xl" : "max-w-4xl md:grid-cols-[1fr_20rem]"}`}>
+        <StretchCard
+          windows={search.windows}
+          budget={ptoBudget}
+          balance={person?.pto_balance ?? null}
+          solo={solo}
+          onSee={() => openTab("breaks")}
         />
-        <button onClick={() => openTab("breaks")} className="mt-4 text-sm font-medium text-app-link underline">
-          See all breaks →
-        </button>
+        {!solo && (
+          <aside className="md:sticky md:top-6 md:col-start-2 md:row-span-2 md:row-start-1">
+            <FreeCard
+              windows={search.windows}
+              people={group.people.map((p) => p.name)}
+              onPick={(w) => {
+                setSelected(w);
+                openTab("breaks");
+              }}
+            />
+          </aside>
+        )}
+        {/* The grid gap already spaces this from the cards above. */}
+        <div className="md:col-start-1 [&>*:first-child]:mt-0">
+          {savedTrips}
+          <WindowList
+            title="Best next pick"
+            empty={solo ? "No breaks fit your PTO in the next 12 months." : "No break fits everyone in the next 12 months."}
+            windows={search.windows.slice(0, 1)}
+            selected={selected}
+            onSelect={setSelected}
+            describe={describeCost}
+            badge={() => null}
+          />
+          <button onClick={() => openTab("breaks")} className="mt-4 text-sm font-medium text-app-link underline">
+            See all breaks →
+          </button>
+        </div>
       </div>
     ),
 
