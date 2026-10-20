@@ -32,13 +32,13 @@ export default function ViewPage() {
   }, [token]);
 
   if (error) return <main className="mx-auto max-w-md px-4 py-12"><ErrorNote>{error}</ErrorNote></main>;
-  if (!view) return <main className="mx-auto max-w-md px-4 py-12 text-zinc-500">Loading the plan…</main>;
+  if (!view) return <main className="mx-auto max-w-md px-4 py-12 text-app-muted">Loading the plan…</main>;
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-12">
-      <p className="text-sm font-medium text-zinc-500">Shared plan · read-only</p>
+      <p className="text-sm font-medium text-app-muted">Shared plan · read-only</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight">{view.group_name}</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">With {view.people.join(", ")}</p>
+      <p className="mt-2 text-app-muted">With {view.people.join(", ")}</p>
       <WindowList
         title="Best breaks for everyone"
         empty="No break fits everyone in the next 12 months."

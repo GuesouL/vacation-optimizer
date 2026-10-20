@@ -29,14 +29,14 @@ export default function AddAdult({ groupId, onAdded }: { groupId: number; onAdde
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="mt-2 block text-sm font-medium text-teal-700 underline dark:text-teal-400">
+      <button onClick={() => setOpen(true)} className="mt-2 block text-sm font-medium text-app-link underline">
         + Add a partner or another adult
       </button>
     );
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="mt-3 rounded-lg border border-app-line bg-app-surface p-3">
       <ProfileForm
         nameLabel="Their first name"
         initialName=""
@@ -44,7 +44,7 @@ export default function AddAdult({ groupId, onAdded }: { groupId: number; onAdde
         savingLabel="Adding…"
         onSubmit={add}
       />
-      <button onClick={() => setOpen(false)} className="mt-3 text-sm text-zinc-500 underline">Cancel</button>
+      <button onClick={() => setOpen(false)} className="mt-3 text-sm text-app-muted underline">Cancel</button>
     </div>
   );
 }

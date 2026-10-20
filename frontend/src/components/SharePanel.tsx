@@ -62,21 +62,21 @@ export default function SharePanel({ groupId }: { groupId: number }) {
   return (
     <div className="mt-4 space-y-3 text-sm">
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => create("INVITE")} className="rounded-lg bg-teal-700 px-3 py-1.5 font-medium text-white hover:bg-teal-800">
+        <button onClick={() => create("INVITE")} className="rounded-lg bg-app-btn px-3 py-1.5 font-medium text-app-on-btn hover:bg-app-btn-hover">
           New invite link
         </button>
-        <button onClick={() => create("VIEW")} className="rounded-lg border border-zinc-300 px-3 py-1.5 font-medium hover:border-zinc-500 dark:border-zinc-700">
+        <button onClick={() => create("VIEW")} className="rounded-lg border border-app-line bg-app-surface px-3 py-1.5 font-medium hover:border-app-muted">
           New view-only link
         </button>
       </div>
 
       {fresh && (
-        <div className="rounded-lg bg-teal-50 p-3 dark:bg-teal-950">
+        <div className="rounded-lg bg-app-soft text-app-soft-ink p-3">
           <p className="font-medium">Copy it now. For safety it&apos;s only shown once.</p>
           <div className="mt-2 flex gap-2">
             <input readOnly value={fresh.url} onFocus={(e) => e.target.select()} aria-label="New link"
-              className="min-w-0 flex-1 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-900" />
-            <button onClick={() => copy(fresh.url)} className="rounded bg-teal-700 px-2 py-1 text-white">
+              className="min-w-0 flex-1 rounded border border-app-line bg-app-surface px-2 py-1 font-mono text-xs" />
+            <button onClick={() => copy(fresh.url)} className="rounded bg-app-btn px-2 py-1 text-app-on-btn">
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
@@ -86,18 +86,18 @@ export default function SharePanel({ groupId }: { groupId: number }) {
       {live.length > 0 && (
         <ul className="space-y-1">
           {live.map((link) => (
-            <li key={link.id} className="flex items-center justify-between gap-2 text-zinc-600 dark:text-zinc-400">
+            <li key={link.id} className="flex items-center justify-between gap-2 text-app-muted">
               <span>
                 {LABELS[link.kind]} · expires {new Date(link.expires_at).toLocaleDateString()}
               </span>
-              <button onClick={() => revoke(link.id)} className="text-red-700 underline dark:text-red-400">
+              <button onClick={() => revoke(link.id)} className="text-app-danger underline">
                 Revoke
               </button>
             </li>
           ))}
         </ul>
       )}
-      {error && <p role="alert" className="text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-app-danger">{error}</p>}
     </div>
   );
 }

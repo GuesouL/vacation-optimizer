@@ -48,40 +48,40 @@ export default function SavedTrips(props: {
 
   return (
     <div className="mt-8">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Saved trips</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">Saved trips</h2>
 
       {selected && !isSaved(trips, selected.start, selected.end) && (
         <button
           onClick={() => save(selected)}
           disabled={busy}
-          className="mt-2 w-full rounded-xl bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+          className="mt-2 w-full rounded-xl bg-app-btn px-4 py-2 text-sm font-medium text-app-on-btn hover:bg-app-btn-hover disabled:opacity-50"
         >
           Save {formatRange(selected.start, selected.end)}
         </button>
       )}
 
       {trips.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">Pick a suggestion and save it to keep it here.</p>
+        <p className="mt-2 text-sm text-app-muted">Pick a suggestion and save it to keep it here.</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {trips.map((t) => (
-            <li key={t.id} className="rounded-xl border border-dashed border-teal-600 px-4 py-3 text-sm">
+            <li key={t.id} className="rounded-xl border border-dashed border-app-muted bg-app-soft px-4 py-3 text-sm">
               <div className="font-medium">{t.label ?? formatRange(t.start_date, t.end_date)}</div>
-              {t.label && <div className="text-zinc-500">{formatRange(t.start_date, t.end_date)}</div>}
-              <div className="text-zinc-500">{bookedBy(t.booked_by)}</div>
+              {t.label && <div className="text-app-muted">{formatRange(t.start_date, t.end_date)}</div>}
+              <div className="text-app-muted">{bookedBy(t.booked_by)}</div>
               <div className="mt-2 flex flex-wrap gap-3">
                 {t.can_book && !t.mine_booked && (
-                  <button onClick={() => book(t)} disabled={busy} className="font-medium text-teal-700 underline dark:text-teal-400">
+                  <button onClick={() => book(t)} disabled={busy} className="font-medium text-app-link underline">
                     Book my PTO
                   </button>
                 )}
                 {t.can_book && t.mine_booked && (
-                  <button onClick={() => cancel(t)} disabled={busy} className="text-zinc-500 underline">
+                  <button onClick={() => cancel(t)} disabled={busy} className="text-app-muted underline">
                     Cancel my PTO
                   </button>
                 )}
                 {t.can_delete && (
-                  <button onClick={() => remove(t)} disabled={busy} className="text-zinc-500 underline">
+                  <button onClick={() => remove(t)} disabled={busy} className="text-app-muted underline">
                     Delete trip
                   </button>
                 )}
@@ -90,7 +90,7 @@ export default function SavedTrips(props: {
           ))}
         </ul>
       )}
-      {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-app-danger">{error}</p>}
     </div>
   );
 }

@@ -11,7 +11,7 @@ type Person = { id: number; name: string; kind: "ADULT" | "CHILD" | "GUEST" };
 type Mine = CalendarInfo & { kind: CalendarKind }; // your own calendars are never the computed federal one
 
 const input =
-  "mt-1 block w-full rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900";
+  "mt-1 block w-full rounded border border-app-line bg-app-surface px-2 py-1";
 const PRESETS = ["Winter break", "Spring break", "Thanksgiving recess", "Mid-winter recess"];
 
 /**
@@ -105,18 +105,18 @@ export default function ScheduleEditor(props: { person: Person; onChanged: () =>
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+    <div className="mt-3 rounded-lg border border-app-line bg-app-surface p-3 text-sm">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-semibold">{person.name}&apos;s schedule</h3>
-        <button onClick={props.onClose} className="text-xs text-zinc-500 underline">Close</button>
+        <button onClick={props.onClose} className="text-xs text-app-muted underline">Close</button>
       </div>
-      {error && <p role="alert" className="mt-2 text-red-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-app-danger">{error}</p>}
       {calendars === null ? (
-        <p className="mt-2 text-zinc-500">Loading…</p>
+        <p className="mt-2 text-app-muted">Loading…</p>
       ) : (
         <>
           {shared.length > 0 && (
-            <p className="mt-2 text-xs text-zinc-500">Also using (shared): {shared.map((c) => c.name).join(", ")}</p>
+            <p className="mt-2 text-xs text-app-muted">Also using (shared): {shared.map((c) => c.name).join(", ")}</p>
           )}
           {mine.length > 1 && (
             <label className="mt-2 block">
@@ -134,10 +134,10 @@ export default function ScheduleEditor(props: { person: Person; onChanged: () =>
               <AddEvent kind={current.kind} onAdd={(draft) => addEvents([draft])} />
               {current.kind === "SCHOOL" && <SummerHelper onAdd={(draft) => addEvents([draft])} />}
               <IcsImport calendarId={current.id} kind={current.kind} onSaved={changed} />
-              <button onClick={removeCalendar} className="mt-3 text-xs text-zinc-500 underline">Delete this calendar</button>
+              <button onClick={removeCalendar} className="mt-3 text-xs text-app-muted underline">Delete this calendar</button>
             </>
           ) : (
-            <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+            <p className="mt-2 text-app-muted">
               {person.kind === "CHILD"
                 ? `Add ${person.name}'s school breaks, or their games and activities.`
                 : "Add dates you can't take off, like work blackouts, games or obligations."}
@@ -151,18 +151,18 @@ export default function ScheduleEditor(props: { person: Person; onChanged: () =>
 }
 
 function EventList(props: { events: CalendarEvent[]; kind: CalendarKind; onDelete: (id: number) => void }) {
-  if (!props.events.length) return <p className="mt-3 text-zinc-500">No dates yet.</p>;
+  if (!props.events.length) return <p className="mt-3 text-app-muted">No dates yet.</p>;
   return (
     <ul className="mt-3 max-h-56 space-y-1 overflow-y-auto">
       {props.events.map((e) => (
         <li key={e.id} className="flex items-baseline justify-between gap-2">
           <span className="min-w-0">
             <span className="font-medium">{e.title}</span>{" "}
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-app-muted">
               {formatRange(e.start_date, e.end_date)} · {effectLabel(e.effect, props.kind)}
             </span>
           </span>
-          <button onClick={() => props.onDelete(e.id)} aria-label={`Delete ${e.title}`} className="text-xs text-zinc-500 underline">
+          <button onClick={() => props.onDelete(e.id)} aria-label={`Delete ${e.title}`} className="text-xs text-app-muted underline">
             Delete
           </button>
         </li>
@@ -198,35 +198,35 @@ function AddEvent(props: {
       {props.kind === "SCHOOL" && (
         <div className="flex flex-wrap gap-1">
           {PRESETS.map((p) => (
-            <button key={p} type="button" onClick={() => { setTitle(p); setEffect("DAY_OFF"); }} className="rounded-full border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700">
+            <button key={p} type="button" onClick={() => { setTitle(p); setEffect("DAY_OFF"); }} className="rounded-full border border-app-line px-2 py-0.5 text-xs">
               {p}
             </button>
           ))}
         </div>
       )}
       <label className="block">
-        <span className="text-xs text-zinc-500">Name</span>
+        <span className="text-xs text-app-muted">Name</span>
         <input value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} className={input} />
       </label>
       <div className="flex gap-2">
         <label className="flex-1">
-          <span className="text-xs text-zinc-500">First day</span>
+          <span className="text-xs text-app-muted">First day</span>
           <input type="date" value={start} onChange={(e) => { setStart(e.target.value); if (!end) setEnd(e.target.value); }} className={input} />
         </label>
         <label className="flex-1">
-          <span className="text-xs text-zinc-500">Last day</span>
+          <span className="text-xs text-app-muted">Last day</span>
           <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={input} />
         </label>
       </div>
       <label className="block">
-        <span className="text-xs text-zinc-500">This means</span>
+        <span className="text-xs text-app-muted">This means</span>
         <select value={effect} onChange={(e) => setEffect(e.target.value as typeof effect)} className={input}>
           <option value="DAY_OFF">{effectLabel("DAY_OFF", props.kind)} (a free day)</option>
           <option value="BUSY">Busy (a trip can&apos;t include it)</option>
         </select>
       </label>
-      {problem && <p role="alert" className="text-red-700">{problem}</p>}
-      <button type="submit" className="rounded bg-teal-700 px-3 py-1.5 font-medium text-white">Add</button>
+      {problem && <p role="alert" className="text-app-danger">{problem}</p>}
+      <button type="submit" className="rounded bg-app-btn px-3 py-1.5 font-medium text-app-on-btn">Add</button>
     </form>
   );
 }
@@ -241,11 +241,11 @@ function SummerHelper(props: { onAdd: (draft: NonNullable<ReturnType<typeof summ
       <div className="font-medium">Summer break</div>
       <div className="flex gap-2">
         <label className="flex-1">
-          <span className="text-xs text-zinc-500">Last day of school</span>
+          <span className="text-xs text-app-muted">Last day of school</span>
           <input type="date" value={last} onChange={(e) => setLast(e.target.value)} className={input} />
         </label>
         <label className="flex-1">
-          <span className="text-xs text-zinc-500">First day next year</span>
+          <span className="text-xs text-app-muted">First day next year</span>
           <input type="date" value={next} onChange={(e) => setNext(e.target.value)} className={input} />
         </label>
       </div>
@@ -253,7 +253,7 @@ function SummerHelper(props: { onAdd: (draft: NonNullable<ReturnType<typeof summ
         type="button"
         disabled={!draft}
         onClick={() => draft && props.onAdd(draft)}
-        className="rounded border border-zinc-300 px-3 py-1.5 font-medium disabled:opacity-50 dark:border-zinc-700"
+        className="rounded border border-app-line px-3 py-1.5 font-medium disabled:opacity-50"
       >
         Add summer break
       </button>
@@ -273,7 +273,7 @@ function NewCalendar(props: {
   const label = props.kinds.find((k) => k.kind === kind)?.label ?? "";
 
   if (!open && !props.first) {
-    return <button onClick={() => setOpen(true)} className="mt-3 block text-xs font-medium text-teal-700 underline dark:text-teal-400">+ New calendar</button>;
+    return <button onClick={() => setOpen(true)} className="mt-3 block text-xs font-medium text-app-link underline">+ New calendar</button>;
   }
   return (
     <form
@@ -287,7 +287,7 @@ function NewCalendar(props: {
     >
       <div className="font-medium">New calendar</div>
       <label className="block">
-        <span className="text-xs text-zinc-500">What is it?</span>
+        <span className="text-xs text-app-muted">What is it?</span>
         <select value={kind} onChange={(e) => setKind(e.target.value as CalendarKind)} className={input}>
           {props.kinds.map((k) => (
             <option key={k.kind} value={k.kind}>{k.label}</option>
@@ -295,10 +295,10 @@ function NewCalendar(props: {
         </select>
       </label>
       <label className="block">
-        <span className="text-xs text-zinc-500">Name (optional)</span>
+        <span className="text-xs text-app-muted">Name (optional)</span>
         <input value={name} maxLength={200} onChange={(e) => setName(e.target.value)} placeholder={`${props.person.name}'s ${label.toLowerCase()}`} className={input} />
       </label>
-      <button type="submit" className="rounded bg-teal-700 px-3 py-1.5 font-medium text-white">Create</button>
+      <button type="submit" className="rounded bg-app-btn px-3 py-1.5 font-medium text-app-on-btn">Create</button>
     </form>
   );
 }

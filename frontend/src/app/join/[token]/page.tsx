@@ -73,14 +73,14 @@ export default function JoinPage() {
       {error ? (
         <ErrorNote>{error}</ErrorNote>
       ) : !preview ? (
-        <p className="text-zinc-500">Checking your invite…</p>
+        <p className="text-app-muted">Checking your invite…</p>
       ) : (
         <>
-          <p className="text-sm font-medium text-teal-700 dark:text-teal-400">
+          <p className="text-sm font-medium text-app-link">
             {preview.invited_by} invited you
           </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">{preview.group_name}</h1>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-app-muted">
             Join to find the breaks that work for everyone. Others in the group see your
             name and which days you&apos;re free, never your PTO balance or why you&apos;re busy.
           </p>
@@ -88,12 +88,12 @@ export default function JoinPage() {
           {status === "unauthenticated" ? (
             <button
               onClick={() => signIn(undefined, { redirectTo: `/join/${token}` })}
-              className="mt-8 w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800"
+              className="mt-8 w-full rounded-lg bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover"
             >
               Sign in to join
             </button>
           ) : !me ? (
-            <p className="mt-8 text-zinc-500">Loading…</p>
+            <p className="mt-8 text-app-muted">Loading…</p>
           ) : me.self_person_id == null ? (
             <ProfileForm
               initialName={me.name}
@@ -123,7 +123,7 @@ export default function JoinPage() {
               <button
                 onClick={joinWithPeople}
                 disabled={joining || bring.length === 0}
-                className="w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+                className="w-full rounded-lg bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover disabled:opacity-50"
               >
                 {joining ? "Joining…" : "Join the trip"}
               </button>

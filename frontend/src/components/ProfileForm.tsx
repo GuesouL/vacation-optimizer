@@ -8,7 +8,7 @@ import type { Profile, Renewal } from "@/lib/profile";
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const inputClass =
-  "mt-1 block w-24 rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
+  "mt-1 block w-24 rounded-lg border border-app-line bg-app-surface px-3 py-2";
 
 /**
  * Name, PTO, work week and holidays. Used by onboarding, the join page and Settings.
@@ -70,7 +70,7 @@ export default function ProfileForm(props: {
           maxLength={100}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="mt-1 block w-full rounded-lg border border-app-line bg-app-surface px-3 py-2"
         />
       </label>
 
@@ -83,10 +83,10 @@ export default function ProfileForm(props: {
           max={365}
           value={pto}
           onChange={(e) => setPto(e.target.value)}
-          className="mt-1 block w-32 rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="mt-1 block w-32 rounded-lg border border-app-line bg-app-surface px-3 py-2"
         />
         {current && (
-          <span className="mt-1 block text-xs text-zinc-500">
+          <span className="mt-1 block text-xs text-app-muted">
             Count the days you have today. Trips you&apos;ve booked in the app are taken off automatically.
           </span>
         )}
@@ -105,8 +105,8 @@ export default function ProfileForm(props: {
                 onClick={() => toggleDay(day)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   on
-                    ? "bg-teal-700 text-white"
-                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    ? "bg-app-btn text-app-on-btn"
+                    : "bg-app-tile text-app-muted"
                 }`}
               >
                 {label}
@@ -123,11 +123,11 @@ export default function ProfileForm(props: {
         </label>
       )}
 
-      <details open={!!current?.renewal} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <details open={!!current?.renewal} className="rounded-lg border border-app-line bg-app-surface p-3">
         <summary className="cursor-pointer text-sm font-medium">
-          When does your PTO renew? <span className="font-normal text-zinc-500">(optional)</span>
+          When does your PTO renew? <span className="font-normal text-app-muted">(optional)</span>
         </summary>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-app-muted">
           Lets trips after your renewal use next year&apos;s days. Leave &quot;days per year&quot; blank
           to plan the whole year with the balance above.
         </p>
@@ -140,11 +140,11 @@ export default function ProfileForm(props: {
             <span className="text-sm">Renews on</span>
             <span className="mt-1 flex gap-1">
               <select aria-label="Renewal month" value={renewMonth} onChange={(e) => setRenewMonth(e.target.value)}
-                className="rounded-lg border border-zinc-300 bg-white px-2 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+                className="rounded-lg border border-app-line bg-app-surface px-2 py-2">
                 {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
               <input aria-label="Renewal day" type="number" min={1} max={31} value={renewDay}
-                onChange={(e) => setRenewDay(e.target.value)} className="w-16 rounded-lg border border-zinc-300 bg-white px-2 py-2 dark:border-zinc-700 dark:bg-zinc-900" />
+                onChange={(e) => setRenewDay(e.target.value)} className="w-16 rounded-lg border border-app-line bg-app-surface px-2 py-2" />
             </span>
           </label>
           <label className="block">
@@ -159,7 +159,7 @@ export default function ProfileForm(props: {
       <button
         type="submit"
         disabled={saving || workWeek.length === 0}
-        className="w-full rounded-lg bg-teal-700 px-4 py-2.5 font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+        className="w-full rounded-lg bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover disabled:opacity-50"
       >
         {saving ? props.savingLabel : props.submitLabel}
       </button>
@@ -169,7 +169,7 @@ export default function ProfileForm(props: {
 
 export function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+    <p role="alert" className="rounded-lg bg-app-danger-soft px-3 py-2 text-sm text-app-danger">
       {children}
     </p>
   );

@@ -53,9 +53,9 @@ function Settings() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-12">
-      <Link href="/plan" className="text-sm text-zinc-500 underline">Back to your plan</Link>
+      <Link href="/plan" className="text-sm text-app-muted underline">Back to your plan</Link>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Settings</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+      <p className="mt-2 text-app-muted">
         {isSelf ? "Update your PTO and work week." : `Update ${person?.name ?? "their"}'s PTO and work week.`} Your
         suggestions re-rank as soon as you save.
       </p>
@@ -63,9 +63,9 @@ function Settings() {
       {error ? (
         <div className="mt-8"><ErrorNote>{error}</ErrorNote></div>
       ) : !me ? (
-        <p className="mt-8 text-zinc-500">Loading…</p>
+        <p className="mt-8 text-app-muted">Loading…</p>
       ) : !person || person.pto_balance == null ? (
-        <p className="mt-8 text-zinc-500">Set up your own profile first on the home page.</p>
+        <p className="mt-8 text-app-muted">Set up your own profile first on the home page.</p>
       ) : (
         <ProfileForm
           initialName={person.name}
