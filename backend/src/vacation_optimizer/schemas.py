@@ -266,6 +266,7 @@ class MemberOut(BaseModel):
     pto_balance: int | None
     work_week: list[int] | None
     pto_left: int | None  # mine only: the balance after trips already booked
+    pto_next_year: int | None = None  # mine only: PTO booked for trips after the next renewal
 
 
 class GroupOut(BaseModel):

@@ -80,12 +80,14 @@ def to_engine_person(
     )
 
 
-def remaining_pto(session: Session, row: orm.Person, today: date) -> int | None:
-    """PTO a person has left until their next renewal, after trips they've booked.
+def pto_left(session: Session, row: orm.Person, today: date) -> tuple[int | None, int | None]:
+    """PTO a person has left until their next renewal after trips they've booked, and
+    PTO already booked out of the following year.
 
-    Looks ahead 400 days, enough to reach any renewal date, so a booked trip that
-    covers a holiday isn't charged for it."""
-    end = today + timedelta(days=400)
+    Looks ahead two years, enough to reach the renewal after next, so a booked trip
+    that covers a holiday isn't charged for it."""
+    end = today + timedelta(days=800)
     calendar_ids = {link.calendar_id for link in row.calendars}
     events = events_in_range(session, calendar_ids, today, end)
-    return to_engine_person(row, today, end, events).remaining_pto(today)
+    person = to_engine_person(row, today, end, events)
+    return person.remaining_pto(today), person.booked_next_year(today)

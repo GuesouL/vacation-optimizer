@@ -2284,6 +2284,17 @@
               }
             ],
             "title": "Pto Left"
+          },
+          "pto_next_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pto Next Year"
           }
         },
         "type": "object",

@@ -19,13 +19,14 @@ type Props = {
   workWeek: number[];
   marks: Map<ISODate, DayMark>;
   onSaved: () => void;
+  onSeeHome: () => void; // after saving: take me to the trip on Home
 };
 
 /**
  * One break up close: its month(s), which days you'd take off, and a Save button.
  * A side panel on laptops; inside BreakSheet on phones.
  */
-export default function BreakDetail({ window: w, groupId, trips, holidays, workWeek, marks, onSaved }: Props) {
+export default function BreakDetail({ window: w, groupId, trips, holidays, workWeek, marks, onSaved, onSeeHome }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const saved = isSaved(trips, w.start, w.end);
@@ -61,7 +62,16 @@ export default function BreakDetail({ window: w, groupId, trips, holidays, workW
       </div>
       <p className="mt-3 text-sm">{takeOffNote(w.days, ptoDays(w.start, w.end, workWeek, holidays))}</p>
       {saved ? (
-        <p className="mt-3 text-sm font-medium text-app-muted">✓ Saved. Book it from Your trips on Home.</p>
+        // The mockup's confirmation: the button turns into a way to find the trip.
+        <>
+          <p role="status" className="mt-3 text-sm font-medium">✓ Saved to Your trips. Book your PTO from there.</p>
+          <button
+            onClick={onSeeHome}
+            className="mt-2 w-full rounded-xl border border-app-line px-4 py-2.5 font-medium"
+          >
+            See it on Home
+          </button>
+        </>
       ) : (
         <button
           onClick={save}
