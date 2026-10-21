@@ -9,7 +9,7 @@ import os
 from datetime import date, timedelta
 from typing import Annotated, Callable
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -152,7 +152,7 @@ def send_due(session, today: date, send: Callable[[str, str, str], None]) -> Sen
 
 @router.post("/internal/send-reminders")
 def send_reminders(
-    session: DB, today: Today, authorization: Annotated[str | None, Header()] = None
+    session: DB, today: Today, response: Response, authorization: Annotated[str | None, Header()] = None
 ) -> SendResult:
     """Called once a month by a scheduler (see .github/workflows/reminders.yml).
     Guarded by a shared secret, not a user login: no person is behind this call."""
@@ -163,4 +163,9 @@ def send_reminders(
     # secret can't be guessed one character at a time by timing responses.
     if not hmac.compare_digest(authorization or "", f"Bearer {secret}"):
         raise HTTPException(401, "Not allowed")
-    return send_due(session, today, mailer.send_email)
+    result = send_due(session, today, mailer.send_email)
+    if result.failed:
+        # Answer 502 so the scheduled job turns red. A green run that quietly sent nothing
+        # is the worst way for this to fail: nobody would know to look.
+        response.status_code = 502
+    return result

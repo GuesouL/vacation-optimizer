@@ -150,3 +150,12 @@ def test_email_needs_configuration(monkeypatch):
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
     with pytest.raises(mailer.EmailNotConfigured):
         mailer.send_email("a@b.c", "hi", "body")
+
+
+def test_the_monthly_endpoint_goes_red_when_a_send_fails(client, monkeypatch):
+    owner_with_group(client)
+    client.put("/me/reminders", json={"enabled": True})
+    monkeypatch.setenv("CRON_SECRET", "cron-secret")
+    monkeypatch.setattr(mailer, "send_email", Outbox(fail_for=("parent@example.com",)))
+    failed = client.post("/internal/send-reminders", headers={"Authorization": "Bearer cron-secret"})
+    assert failed.status_code == 502 and failed.json() == {"sent": 0, "failed": 1}
