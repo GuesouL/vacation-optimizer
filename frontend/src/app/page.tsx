@@ -40,7 +40,7 @@ export default function Home() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Vacation Optimizer</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">BridgeDay</h1>
       <p className="mt-2 text-app-muted">
         Find the most days off for the fewest PTO days.
       </p>

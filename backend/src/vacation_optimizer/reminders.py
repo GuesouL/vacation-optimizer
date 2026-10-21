@@ -77,7 +77,7 @@ def short_range(w: WindowOut) -> str:
 def digest_text(digest: DigestOut, plan_name: str, link: str = "") -> tuple[str, str]:
     """Subject and plain-text body, for email or a push notification."""
     left = ", ".join(f"{p.name} {p.pto_left}" for p in digest.people)
-    subject = f"{digest.month}: your best days off"
+    subject = f"BridgeDay · {digest.month}: your best days off"
     lines = [f"PTO days left: {left}." if left else "", ""]
     if digest.breaks:
         lines.append(f"Best breaks starting in {digest.month}:")
@@ -90,7 +90,7 @@ def digest_text(digest: DigestOut, plan_name: str, link: str = "") -> tuple[str,
     if not digest.breaks and not digest.free_weekends:
         lines.append(f"No good breaks start in {digest.month}. We'll check again next month.")
     lines += ["", f"Open {plan_name} to save one." + (f" {link}" if link else "")]
-    lines += ["", "You get this because you turned on monthly reminders in Settings. Turn them off there any time."]
+    lines += ["", "You get this because you turned on BridgeDay's monthly reminders in Settings. Turn them off there any time."]
     return subject, "\n".join(lines).strip()
 
 

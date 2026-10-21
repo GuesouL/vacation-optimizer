@@ -102,7 +102,7 @@ On the 25th of each month, people who turned on "Monthly email" in Settings get 
 
 1. **Resend** (resend.com, free tier): create an account, then **API Keys** and **Create API Key**. Until you verify your own
    domain, Resend only sends *from* `onboarding@resend.dev` and only *to* your own signup email, which is fine for a first test.
-2. **Render** environment variables on the API: `RESEND_API_KEY` (the key), `REMINDER_FROM` (e.g. `Vacation Optimizer <onboarding@resend.dev>`),
+2. **Render** environment variables on the API: `RESEND_API_KEY` (the key), `REMINDER_FROM` (e.g. `BridgeDay <onboarding@resend.dev>`),
    `CRON_SECRET` (a new random string: `openssl rand -base64 32`), and `APP_URL` (your Vercel address). Redeploy.
 3. **GitHub** repository secrets (Settings, Secrets and variables, Actions): `API_URL` (your Render address, no trailing slash) and the same `CRON_SECRET`.
 4. Test it: turn the switch on in Settings, then GitHub **Actions**, **monthly reminders**, **Run workflow**. Running it twice in one month

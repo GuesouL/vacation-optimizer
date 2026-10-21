@@ -57,7 +57,7 @@ def test_digest_text_reads_like_a_short_note():
         free_weekends=[window(date(2026, 11, 7), date(2026, 11, 9), 3, 0)],
     )
     subject, body = digest_text(digest, "Pat's plan")
-    assert subject == "November 2026: your best days off"
+    assert subject == "BridgeDay · November 2026: your best days off"
     assert body == (
         "PTO days left: Pat 8.\n\n"
         "Best breaks starting in November 2026:\n"
@@ -65,7 +65,7 @@ def test_digest_text_reads_like_a_short_note():
         "Long weekends with no PTO needed:\n"
         "• Nov 7 – Nov 9\n\n"
         "Open Pat's plan to save one.\n\n"
-        "You get this because you turned on monthly reminders in Settings. Turn them off there any time."
+        "You get this because you turned on BridgeDay's monthly reminders in Settings. Turn them off there any time."
     )
 
 
