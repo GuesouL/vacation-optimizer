@@ -1058,6 +1058,11 @@ export interface components {
             sent: number;
             /** Failed */
             failed: number;
+            /**
+             * Errors
+             * @default []
+             */
+            errors?: string[];
         };
         /** SharedViewOut */
         SharedViewOut: {

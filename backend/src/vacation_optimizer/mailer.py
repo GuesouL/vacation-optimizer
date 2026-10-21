@@ -27,4 +27,7 @@ def send_email(to: str, subject: str, text: str) -> None:
         json={"from": sender, "to": [to], "subject": subject, "text": text},
         timeout=15,
     )
-    response.raise_for_status()
+    if response.is_error:
+        # Resend explains itself in the body ("you can only send to your own address"),
+        # and raise_for_status() would throw that away, leaving only the status code.
+        raise RuntimeError(f"Resend answered {response.status_code}: {response.text[:300]}")
