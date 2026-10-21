@@ -2,6 +2,7 @@
 
 from datetime import date
 
+import httpx
 import pytest
 from conftest import YEAR_START, sign_in
 from test_sharing import owner_with_group
@@ -143,7 +144,7 @@ def test_the_monthly_endpoint_needs_the_secret(client, monkeypatch):
     assert client.post("/internal/send-reminders").status_code == 401
     assert client.post("/internal/send-reminders", headers={"Authorization": "Bearer nope"}).status_code == 401
     ok = client.post("/internal/send-reminders", headers={"Authorization": "Bearer cron-secret"})
-    assert ok.status_code == 200 and ok.json() == {"sent": 0, "failed": 0}
+    assert ok.status_code == 200 and ok.json() == {"sent": 0, "failed": 0, "errors": []}
 
 
 def test_email_needs_configuration(monkeypatch):
@@ -158,4 +159,15 @@ def test_the_monthly_endpoint_goes_red_when_a_send_fails(client, monkeypatch):
     monkeypatch.setenv("CRON_SECRET", "cron-secret")
     monkeypatch.setattr(mailer, "send_email", Outbox(fail_for=("parent@example.com",)))
     failed = client.post("/internal/send-reminders", headers={"Authorization": "Bearer cron-secret"})
-    assert failed.status_code == 502 and failed.json() == {"sent": 0, "failed": 1}
+    body = failed.json()
+    assert failed.status_code == 502 and (body["sent"], body["failed"]) == (0, 1)
+    assert body["errors"][0].endswith("bad address")  # the reason reaches the job log
+
+
+def test_resend_errors_keep_their_explanation(monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("REMINDER_FROM", "App <onboarding@resend.dev>")
+    refusal = httpx.Response(403, text="You can only send testing emails to your own email address", request=httpx.Request("POST", mailer.RESEND_URL))
+    monkeypatch.setattr(mailer.httpx, "post", lambda *a, **k: refusal)
+    with pytest.raises(RuntimeError, match="403.*only send testing emails"):
+        mailer.send_email("a@b.c", "hi", "body")

@@ -118,6 +118,7 @@ def set_reminders(body: ReminderSwitch, account: CurrentAccount, session: DB) ->
 class SendResult(BaseModel):
     sent: int
     failed: int
+    errors: list[str] = []  # why each failure happened; no addresses, so safe to show in a job log
 
 
 def send_due(session, today: date, send: Callable[[str, str, str], None]) -> SendResult:
@@ -132,6 +133,7 @@ def send_due(session, today: date, send: Callable[[str, str, str], None]) -> Sen
         )
     ).all()
     sent = failed = 0
+    errors: list[str] = []
     for account in accounts:
         groups = my_groups(session, account)
         if not groups:
@@ -140,14 +142,15 @@ def send_due(session, today: date, send: Callable[[str, str, str], None]) -> Sen
         try:
             subject, body = digest_text(build_digest(session, group, account, today), group.name, link)
             send(account.email, subject, body)
-        except Exception:
+        except Exception as exc:
             log.exception("reminder failed for account %s", account.id)
+            errors.append(f"account {account.id}: {exc}"[:400])
             failed += 1
             continue
         account.last_reminder = month  # recorded only after the send worked, so a retry covers failures
         session.commit()
         sent += 1
-    return SendResult(sent=sent, failed=failed)
+    return SendResult(sent=sent, failed=failed, errors=errors)
 
 
 @router.post("/internal/send-reminders")

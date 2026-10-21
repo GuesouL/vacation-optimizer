@@ -3031,6 +3031,14 @@
           "failed": {
             "type": "integer",
             "title": "Failed"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
           }
         },
         "type": "object",
