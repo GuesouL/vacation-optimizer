@@ -1,4 +1,4 @@
-# Vacation Optimizer front end
+# BridgeDay front end
 
 Next.js (App Router) + TypeScript + Tailwind. See the root README for how to run it.
 

@@ -8,7 +8,7 @@ const body = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
 const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Vacation Optimizer",
+  title: "BridgeDay",
   description: "Find the most days off for the fewest PTO days.",
 };
 

@@ -1,7 +1,13 @@
-# Vacation Optimizer
+# BridgeDay
 
-Finds the best shared vacation windows for a group (adults' PTO, federal holidays,
+BridgeDay (formerly Vacation Optimizer) finds the best shared vacation windows for a group (adults' PTO, federal holidays,
 kids' school breaks), ranked by days off per PTO day spent.
+
+## About the name
+The app is called BridgeDay. The code still uses `vacation_optimizer` for the Python package,
+`vacation-optimizer-api` for the sign-in token audience, and `vacation` for the database names.
+Those are internal labels nobody sees, and renaming them would mean coordinated changes to
+imports, the Docker start command, and every signed-in session, for no visible gain.
 
 ## Layout
 - `backend/` — Python 3.12 + FastAPI. The optimizer engine lives in `src/vacation_optimizer/`.

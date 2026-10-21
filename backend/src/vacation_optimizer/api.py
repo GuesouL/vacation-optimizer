@@ -50,7 +50,7 @@ from .schemas import (
 from .search import SearchParams, load_group, search_group
 from .trips import Today
 
-app = FastAPI(title="Vacation Optimizer")
+app = FastAPI(title="BridgeDay")
 
 # Browsers block a page on one address (localhost:3000) from calling an API on
 # another (localhost:8000) unless the API says that page is allowed. That's CORS.
