@@ -4,6 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import Landing from "@/components/Landing";
 import ProfileForm, { ErrorNote } from "@/components/ProfileForm";
 import { api, errorMessage, type Me } from "@/lib/api";
 import { ensureSelf, type Profile } from "@/lib/profile";
@@ -38,6 +39,9 @@ export default function Home() {
     router.push("/plan");
   }
 
+  // Signed out: the full home page. Signed in: the narrow setup form below.
+  if (status === "unauthenticated") return <Landing onSignIn={() => signIn()} />;
+
   return (
     <main className="mx-auto w-full max-w-md px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">BridgeDay</h1>
@@ -45,14 +49,7 @@ export default function Home() {
         Find the most days off for the fewest PTO days.
       </p>
 
-      {status === "unauthenticated" ? (
-        <button
-          onClick={() => signIn()}
-          className="mt-8 w-full rounded-lg bg-app-btn px-4 py-2.5 font-medium text-app-on-btn hover:bg-app-btn-hover"
-        >
-          Sign in to start
-        </button>
-      ) : error ? (
+      {error ? (
         <div className="mt-8"><ErrorNote>{error}</ErrorNote></div>
       ) : !me ? (
         <p className="mt-8 text-app-muted">Loading…</p>
