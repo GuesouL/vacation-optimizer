@@ -110,9 +110,31 @@ On the 25th of each month, people who turned on "Monthly email" in Settings get 
 
 Why a GitHub schedule and not a timer inside the API: Render's free tier sleeps when idle, and a sleeping server can't keep time.
 
+## 8. Custom domain (optional)
+
+The live app runs at `bridgeday.app` (bought at Cloudflare Registrar; Cloudflare also hosts its DNS). The `vercel.app`
+address still works. The rule for a domain change is **add, don't replace**: put the new address next to the old one
+everywhere, prove it works, and only then think about removing the old one.
+
+1. **Vercel**, Settings, Domains: add `bridgeday.app` and `www.bridgeday.app`. Connect `bridgeday.app` to the project and set
+   `www` to **redirect (308) to `bridgeday.app`**. Don't let both redirect: Vercel may suggest making www the main one, and then
+   sign-in sends Google a `www` address it doesn't know (`redirect_uri_mismatch`).
+2. **Cloudflare**, DNS: add the A and CNAME records Vercel shows, with the proxy set to **DNS only** (grey cloud). An orange
+   (proxied) record stops Vercel from getting its HTTPS certificate. `.app` only loads over HTTPS, so nothing opens until it's issued.
+3. **Google**, the OAuth client: add the redirect URI `https://bridgeday.app/api/auth/callback/google`, and `bridgeday.app`
+   as an authorized domain on the consent screen. Keep the old entries.
+4. **Render**: `ALLOWED_ORIGINS` = `https://bridgeday.app,https://vacation-optimizer-gilt.vercel.app` (comma, **no spaces**: the
+   API splits on the comma without trimming) and `APP_URL` = `https://bridgeday.app`. Redeploy.
+5. **Resend**, Domains: add `bridgeday.app` and let it set up the Cloudflare records (MX + SPF TXT on `send`, DKIM TXT on
+   `resend._domainkey`; a `_dmarc` TXT of `v=DMARC1; p=none;` is a good extra). Once it's verified, set
+   `REMINDER_FROM` = `BridgeDay <reminders@bridgeday.app>` on Render and redeploy. Now reminders reach anyone, not just you.
+
+No code changes: invite links are built from the address you're on, so links made on `bridgeday.app` point there.
+The API still lives at its `onrender.com` address; giving it `api.bridgeday.app` would also mean changing
+`NEXT_PUBLIC_API_URL` (and rebuilding Vercel) and the GitHub `API_URL` secret.
+
 ## What this doesn't cover yet
 
 - Database backups (Neon keeps short history on the free plan; export before anything risky).
-- A custom domain. Both Vercel and Render support one; add it, then update the Google redirect URI and `ALLOWED_ORIGINS`.
 - Error alerts. Today you'd learn about a crash from a user.
 - A staging copy. This is one live copy: test changes on your laptop first.
