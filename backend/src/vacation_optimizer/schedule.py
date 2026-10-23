@@ -55,6 +55,7 @@ def person_calendars(person_id: int, account: CurrentAccount, session: DB) -> li
             kind=link.calendar.kind,
             mine=link.calendar.owner_account_id == account.id,
             enabled=link.enabled,
+            excluded_titles=link.excluded_titles,
         )
         for link in links
         if link.calendar.owner_account_id in (None, account.id)

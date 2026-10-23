@@ -56,6 +56,11 @@ def federal_holidays(year: int) -> list[tuple[date, str]]:
     ]
 
 
+# The names a person can say their job skips. Saved skips are matched by name,
+# so renaming a holiday above would quietly undo them: add a data migration too.
+FEDERAL_HOLIDAY_NAMES = tuple(name for _, name in federal_holidays(2000))
+
+
 def federal_calendar(start: date, end: date) -> Calendar:
     """Every observed federal holiday between start and end, inclusive.
 

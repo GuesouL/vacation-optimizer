@@ -26,7 +26,7 @@ from .access import (
 )
 from .auth import CurrentAccount
 from .db import DB
-from .holidays import federal_calendar
+from .holidays import FEDERAL_HOLIDAY_NAMES, federal_calendar
 from .loader import pto_left
 from .schemas import (
     AddMembersIn,
@@ -136,7 +136,12 @@ def update_person(person_id: int, body: PersonUpdate, account: CurrentAccount, s
 def subscribe(person_id: int, body: SubscribeIn, account: CurrentAccount, session: DB) -> None:
     """Turn a calendar on for a person (or update their excluded holidays)."""
     my_person(session, account, person_id)
-    usable_calendar(session, account, body.calendar_id)
+    calendar = usable_calendar(session, account, body.calendar_id)
+    if calendar.kind is orm.CalendarKind.FEDERAL:
+        # A typo here would silently skip nothing, so only real holiday names are allowed.
+        unknown = set(body.excluded_titles) - set(FEDERAL_HOLIDAY_NAMES)
+        if unknown:
+            raise HTTPException(422, f"not a federal holiday: {', '.join(sorted(unknown))}")
     session.merge(orm.PersonCalendar(person_id=person_id, enabled=True, **body.model_dump()))
     session.commit()
 

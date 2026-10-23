@@ -169,6 +169,7 @@ class BulkEventsIn(BaseModel):
 class PersonCalendarOut(CalendarOut):
     mine: bool  # you own it, so you can edit its dates
     enabled: bool
+    excluded_titles: list[str]  # holidays on it this person doesn't get
 
 
 class IcsIn(BaseModel):

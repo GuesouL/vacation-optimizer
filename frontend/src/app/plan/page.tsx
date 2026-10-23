@@ -19,6 +19,7 @@ import SharePanel from "@/components/SharePanel";
 import { textLink } from "@/components/ui";
 import { api, errorMessage, type Group, type Me, type PersonSchedule, type Search, type Trip, type Window } from "@/lib/api";
 import { addDays, type ISODate, today } from "@/lib/dates";
+import { federalSkips, holidaysYouGet } from "@/lib/holidays";
 import { loadHidden, saveHidden } from "@/lib/preferences";
 import { describePtoLeft } from "@/lib/profile";
 import { isSaved, nextRenewal } from "@/lib/trips";
@@ -50,7 +51,8 @@ function Plan() {
   const [sort, setSort] = useState<Sort>("best_value");
   const [group, setGroup] = useState<Group | null>(null);
   const [search, setSearch] = useState<Search | null>(null);
-  const [holidays, setHolidays] = useState(new Map<ISODate, string>());
+  const [allHolidays, setHolidays] = useState(new Map<ISODate, string>()); // every federal holiday
+  const [skipped, setSkipped] = useState<string[] | null>([]); // the ones your job doesn't give
   const [selected, setSelected] = useState<Window | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
@@ -151,6 +153,19 @@ function Plan() {
 
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
+  // The plan is drawn from your side, like the work week: a holiday you work is a workday here.
+  const holidays = useMemo(() => holidaysYouGet(allHolidays, skipped), [allHolidays, skipped]);
+  const personId = person?.id;
+  useEffect(() => {
+    if (personId == null) return;
+    api
+      .GET("/people/{person_id}/calendars", { params: { path: { person_id: personId } } })
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        setSkipped(federalSkips(data));
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [personId, version]);
 
   // Pick a break. Laptops show it in the side panel already; phones open the sheet.
   // (Only on phones: a modal hidden by CSS would still block the page behind it.)
