@@ -95,3 +95,40 @@ export default function HolidayPicker(props: {
     </fieldset>
   );
 }
+
+/**
+ * "Extra days your company gives": common days off that aren't federal holidays.
+ * Unticked by default, since they depend on the employer, not the calendar.
+ */
+export function CompanyDaysPicker(props: {
+  days: Holiday[]; // each common company day once, on its next date
+  picked: string[];
+  onChange: (picked: string[]) => void;
+}) {
+  const { days, picked, onChange } = props;
+  if (days.length === 0) return null; // couldn't load: leave whatever is saved alone
+
+  function toggle(name: string) {
+    onChange(picked.includes(name) ? picked.filter((n) => n !== name) : [...picked, name]);
+  }
+
+  return (
+    <fieldset aria-label="Extra days your company gives" className="space-y-2 rounded-lg border border-app-line bg-app-surface p-3">
+      <p className="text-sm font-medium">Extra days your company gives</p>
+      <p className="text-xs text-app-muted">Not federal holidays, but lots of jobs give them. Tick any you get.</p>
+      <ul className="space-y-1">
+        {days.map((d) => (
+          <li key={d.name}>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={picked.includes(d.name)} onChange={() => toggle(d.name)} />
+              <span>{d.name}</span>
+              <span className="ml-auto tabular-nums text-xs text-app-muted">
+                {shortDate.format(new Date(`${d.date}T00:00:00Z`))}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  );
+}

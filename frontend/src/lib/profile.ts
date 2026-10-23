@@ -1,4 +1,5 @@
 import { api, FEDERAL_CALENDAR_ID, type Me } from "./api";
+import { companyCalendarId } from "./holidays";
 
 export type Renewal = { allowance: number; month: number; day: number; carryoverMax: number };
 
@@ -7,6 +8,7 @@ export type Profile = {
   ptoBalance: number;
   workWeek: number[];
   skippedHolidays: string[]; // federal holidays their job doesn't give; [] = all of them
+  skippedCompanyDays: string[] | null; // common company days they don't get; null = leave as saved
   renewal: Renewal | null; // null: plan the whole year with today's balance
 };
 
@@ -59,17 +61,20 @@ export async function createAdult(profile: Profile, isSelf: boolean): Promise<nu
     },
   });
   if (!person.data) throw person.error;
-  await saveHolidays(person.data.id, profile.skippedHolidays);
+  await saveHolidays(person.data.id, profile);
   return person.data.id;
 }
 
-/** Save which federal holidays someone skips. Posting again replaces the list. */
-export async function saveHolidays(personId: number, skipped: string[]) {
-  const link = await api.POST("/people/{person_id}/calendars", {
-    params: { path: { person_id: personId } },
-    body: { calendar_id: FEDERAL_CALENDAR_ID, excluded_titles: skipped },
-  });
-  if (link.error) throw link.error;
+/** Save which federal holidays and company days someone skips. Posting again replaces each list. */
+export async function saveHolidays(personId: number, profile: Pick<Profile, "skippedHolidays" | "skippedCompanyDays">) {
+  const links = [{ calendar_id: FEDERAL_CALENDAR_ID, excluded_titles: profile.skippedHolidays }];
+  if (profile.skippedCompanyDays) {
+    links.push({ calendar_id: await companyCalendarId(), excluded_titles: profile.skippedCompanyDays });
+  }
+  for (const body of links) {
+    const link = await api.POST("/people/{person_id}/calendars", { params: { path: { person_id: personId } }, body });
+    if (link.error) throw link.error;
+  }
 }
 
 /** Who Settings edits: the adult named in `?person=` if you manage them, otherwise you. */

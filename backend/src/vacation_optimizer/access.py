@@ -66,8 +66,8 @@ def owned_calendar(session: Session, account: orm.Account, calendar_id: int) -> 
     """A calendar this account may change: its own private ones. Shared calendars
     (like a school district's) are read-only here, since many families rely on them."""
     calendar = usable_calendar(session, account, calendar_id)
-    if calendar.kind is orm.CalendarKind.FEDERAL:
-        raise HTTPException(400, "Federal holidays are computed, not stored")
+    if calendar.kind.computed:
+        raise HTTPException(400, "Holidays are computed, not stored")
     if calendar.owner_account_id != account.id:
         raise HTTPException(403, "Only the calendar's owner can change it")
     return calendar

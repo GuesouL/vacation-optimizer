@@ -42,6 +42,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/company-days/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Company Days
+         * @description Common company days in `year` (day after Thanksgiving, Christmas Eve,
+         *     New Year's Eve), moved off weekends the way employers usually do.
+         */
+        get: operations["company_days_company_days__year__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -631,7 +652,7 @@ export interface components {
          * CalendarKind
          * @enum {string}
          */
-        CalendarKind: "FEDERAL" | "WORK" | "SCHOOL" | "LEAGUE" | "CUSTOM";
+        CalendarKind: "FEDERAL" | "WORK" | "SCHOOL" | "LEAGUE" | "CUSTOM" | "COMPANY";
         /** CalendarOut */
         CalendarOut: {
             /** Id */
@@ -1190,6 +1211,37 @@ export interface operations {
         };
     };
     holidays_holidays__year__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holiday"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_days_company_days__year__get: {
         parameters: {
             query?: never;
             header?: never;

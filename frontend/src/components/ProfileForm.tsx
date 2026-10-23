@@ -2,9 +2,9 @@
 
 import { type FormEvent, useState } from "react";
 
-import HolidayPicker from "@/components/HolidayPicker";
+import HolidayPicker, { CompanyDaysPicker } from "@/components/HolidayPicker";
 import { errorMessage } from "@/lib/api";
-import { useFederalHolidays } from "@/lib/holidays";
+import { companyPicks, useHolidays } from "@/lib/holidays";
 import type { Profile, Renewal } from "@/lib/profile";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -18,8 +18,14 @@ const inputClass =
  */
 export default function ProfileForm(props: {
   nameLabel?: string; // "Your first name" unless this form is about someone else
-  // skippedHolidays: null when they aren't on the federal calendar at all (= skip every one)
-  current?: { ptoBalance: number; workWeek: number[]; renewal: Renewal | null; skippedHolidays: string[] | null };
+  // skipped*: what's saved on their federal / company-days link; null when there's no link
+  current?: {
+    ptoBalance: number;
+    workWeek: number[];
+    renewal: Renewal | null;
+    skippedHolidays: string[] | null;
+    skippedCompanyDays: string[] | null;
+  };
   initialName: string;
   submitLabel: string;
   savingLabel: string;
@@ -29,10 +35,15 @@ export default function ProfileForm(props: {
   const { current } = props;
   const [pto, setPto] = useState(String(current?.ptoBalance ?? 10));
   const [workWeek, setWorkWeek] = useState(current?.workWeek ?? [0, 1, 2, 3, 4]);
-  const holidays = useFederalHolidays();
+  const holidays = useHolidays("federal");
+  const companyDays = useHolidays("company");
   // null until the list loads, for someone saved with no federal holidays at all
   const [skippedState, setSkipped] = useState<string[] | null>(current ? current.skippedHolidays : []);
   const skipped = skippedState ?? holidays.map((h) => h.name);
+  const companyNames = companyDays.map((d) => d.name);
+  // null until they tick something: start from what's saved once the names load
+  const [pickedState, setPicked] = useState<string[] | null>(null);
+  const picked = pickedState ?? companyPicks(current ? current.skippedCompanyDays : null, companyNames);
   const [allowance, setAllowance] = useState(current?.renewal ? String(current.renewal.allowance) : ""); // blank = skip renewal
   const [renewMonth, setRenewMonth] = useState(String(current?.renewal?.month ?? 1));
   const [renewDay, setRenewDay] = useState(String(current?.renewal?.day ?? 1));
@@ -59,7 +70,12 @@ export default function ProfileForm(props: {
             carryoverMax: Number(carryover || 0),
           }
         : null;
-      await props.onSubmit({ name: name.trim(), ptoBalance: Number(pto), workWeek, skippedHolidays: skipped, renewal });
+      await props.onSubmit({ name: name.trim(), ptoBalance: Number(pto), workWeek,
+        skippedHolidays: skipped,
+        // If the list never loaded, leave what's saved alone rather than guess.
+        skippedCompanyDays: companyNames.length ? companyNames.filter((n) => !picked.includes(n)) : null,
+        renewal,
+      });
     } catch (err) {
       setError(errorMessage(err));
       setSaving(false);
@@ -122,6 +138,7 @@ export default function ProfileForm(props: {
       </fieldset>
 
       <HolidayPicker holidays={holidays} skipped={skipped} onChange={setSkipped} />
+      <CompanyDaysPicker days={companyDays} picked={picked} onChange={setPicked} />
 
       <details open={!!current?.renewal} className="rounded-lg border border-app-line bg-app-surface p-3">
         <summary className="cursor-pointer text-sm font-medium">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { api, FEDERAL_CALENDAR_ID, type CalendarInfo, type Holiday } from "./api";
+import type { components } from "./api-types";
+import { api, type CalendarInfo, type Holiday } from "./api";
 import { type ISODate, today } from "./dates";
 
 /**
@@ -56,12 +57,22 @@ export function upcoming(lists: Holiday[][], from: ISODate): Holiday[] {
   });
 }
 
+type Kind = components["schemas"]["CalendarKind"];
+
 /**
- * What someone skips, from their calendar links. `null` means they aren't on
- * the federal calendar at all, which is the same as skipping every holiday.
+ * What someone skips on one of the computed calendars (FEDERAL or COMPANY),
+ * from their calendar links. `null` means they aren't on that calendar at all,
+ * which is the same as skipping every day on it.
  */
-export function federalSkips(links: CalendarInfo[]): string[] | null {
-  return links.find((l) => l.id === FEDERAL_CALENDAR_ID && l.enabled)?.excluded_titles ?? null;
+export function skipsOn(links: CalendarInfo[], kind: Kind): string[] | null {
+  return links.find((l) => l.kind === kind && l.enabled)?.excluded_titles ?? null;
+}
+
+export const federalSkips = (links: CalendarInfo[]) => skipsOn(links, "FEDERAL");
+
+/** The company days someone gets: the opposite of what's stored. */
+export function companyPicks(skipped: string[] | null, names: string[]): string[] {
+  return skipped === null ? [] : names.filter((n) => !skipped.includes(n));
 }
 
 /** Drop the holidays this person works from a date -> name map. */
@@ -70,17 +81,32 @@ export function holidaysYouGet(all: Map<ISODate, string>, skipped: string[] | nu
   return new Map([...all].filter(([, name]) => !skipped.includes(name)));
 }
 
-/** The federal holidays, each on its next date. Empty until loaded. */
-export function useFederalHolidays(): Holiday[] {
+/** One year of federal holidays or common company days. */
+export async function holidaysIn(kind: "federal" | "company", year: number): Promise<Holiday[]> {
+  const params = { params: { path: { year } } };
+  const { data, error } = kind === "federal"
+    ? await api.GET("/holidays/{year}", params)
+    : await api.GET("/company-days/{year}", params);
+  if (!data) throw error;
+  return data;
+}
+
+/** The federal holidays or common company days, each on its next date. Empty until loaded. */
+export function useHolidays(kind: "federal" | "company"): Holiday[] {
   const [list, setList] = useState<Holiday[]>([]);
   useEffect(() => {
     const from = today();
     const year = Number(from.slice(0, 4));
-    Promise.all(
-      [year, year + 1].map((y) => api.GET("/holidays/{year}", { params: { path: { year: y } } })),
-    )
-      .then((responses) => setList(upcoming(responses.map((r) => r.data ?? []), from)))
+    Promise.all([year, year + 1].map((y) => holidaysIn(kind, y)))
+      .then((years) => setList(upcoming(years, from)))
       .catch(() => setList([])); // the picker says it couldn't load; the toggle still works
-  }, []);
+  }, [kind]);
   return list;
+}
+
+/** The shared "Common company days" calendar. It's found by kind: its id differs per database. */
+export async function companyCalendarId(): Promise<number> {
+  const { data, error } = await api.GET("/calendars", { params: { query: { kind: "COMPANY" } } });
+  if (!data?.[0]) throw error ?? new Error("The company days calendar is missing. Run the database migrations.");
+  return data[0].id;
 }

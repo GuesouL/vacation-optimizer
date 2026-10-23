@@ -141,7 +141,7 @@ def group_schedule(
 
     mine = [m.person for m in group.members if manages(account, m.person)]
     links = {
-        p.id: [l for l in p.calendars if l.enabled and l.calendar.kind is not orm.CalendarKind.FEDERAL]
+        p.id: [l for l in p.calendars if l.enabled and not l.calendar.kind.computed]
         for p in mine
     }
     calendar_ids = {l.calendar_id for person_links in links.values() for l in person_links}

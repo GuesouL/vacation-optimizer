@@ -11,7 +11,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from . import models, orm
-from .holidays import federal_calendar
+from .holidays import company_calendar, federal_calendar
 
 
 def overlapping_events(calendar_ids: set[int], start: date, end: date) -> Select:
@@ -55,6 +55,8 @@ def to_engine_person(
         if link.calendar.kind is orm.CalendarKind.FEDERAL:
             # Federal holidays aren't stored; compute them for exactly this range.
             calendars.append(federal_calendar(start, end))
+        elif link.calendar.kind is orm.CalendarKind.COMPANY:
+            calendars.append(company_calendar(start, end))
         else:
             calendars.append(models.Calendar(link.calendar.name, [
                 models.CalendarEvent(e.start_date, e.end_date, e.effect, e.title)

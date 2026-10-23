@@ -26,7 +26,7 @@ from .access import (
 )
 from .auth import CurrentAccount
 from .db import DB
-from .holidays import FEDERAL_HOLIDAY_NAMES, federal_calendar
+from .holidays import COMPANY_DAY_NAMES, FEDERAL_HOLIDAY_NAMES, company_calendar, federal_calendar
 from .loader import pto_left
 from .schemas import (
     AddMembersIn,
@@ -77,6 +77,14 @@ def holidays(year: int) -> list[Holiday]:
     """Observed federal holidays that fall in `year` (including next year's
     New Year's when it's observed on Dec 31)."""
     calendar = federal_calendar(date(year, 1, 1), date(year, 12, 31))
+    return [Holiday(date=e.start, name=e.title) for e in calendar.events]
+
+
+@app.get("/company-days/{year}")
+def company_days(year: int) -> list[Holiday]:
+    """Common company days in `year` (day after Thanksgiving, Christmas Eve,
+    New Year's Eve), moved off weekends the way employers usually do."""
+    calendar = company_calendar(date(year, 1, 1), date(year, 12, 31))
     return [Holiday(date=e.start, name=e.title) for e in calendar.events]
 
 
@@ -137,11 +145,12 @@ def subscribe(person_id: int, body: SubscribeIn, account: CurrentAccount, sessio
     """Turn a calendar on for a person (or update their excluded holidays)."""
     my_person(session, account, person_id)
     calendar = usable_calendar(session, account, body.calendar_id)
-    if calendar.kind is orm.CalendarKind.FEDERAL:
+    names = {orm.CalendarKind.FEDERAL: FEDERAL_HOLIDAY_NAMES, orm.CalendarKind.COMPANY: COMPANY_DAY_NAMES}
+    if calendar.kind in names:
         # A typo here would silently skip nothing, so only real holiday names are allowed.
-        unknown = set(body.excluded_titles) - set(FEDERAL_HOLIDAY_NAMES)
+        unknown = set(body.excluded_titles) - set(names[calendar.kind])
         if unknown:
-            raise HTTPException(422, f"not a federal holiday: {', '.join(sorted(unknown))}")
+            raise HTTPException(422, f"not on {calendar.name}: {', '.join(sorted(unknown))}")
     session.merge(orm.PersonCalendar(person_id=person_id, enabled=True, **body.model_dump()))
     session.commit()
 

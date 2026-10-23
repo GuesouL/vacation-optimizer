@@ -62,15 +62,47 @@ FEDERAL_HOLIDAY_NAMES = tuple(name for _, name in federal_holidays(2000))
 
 
 def federal_calendar(start: date, end: date) -> Calendar:
-    """Every observed federal holiday between start and end, inclusive.
+    """Every observed federal holiday between start and end, inclusive."""
+    return Calendar("US Federal Holidays", _between(federal_holidays, start, end))
 
-    Always generates one year past `end`, so a next-year holiday observed in
-    late December (New Year's 2028 -> Dec 31, 2027) isn't missed.
-    """
-    events = [
+
+def before_the_holiday(day: date, holiday: date) -> date:
+    """An eve that lands on a weekend, or on the day the holiday itself is
+    observed, moves back to the workday before. Christmas 2027 is a Saturday,
+    observed Friday Dec 24, so Christmas Eve is taken Thursday Dec 23."""
+    while day.weekday() in (SAT, SUN) or day == holiday:
+        day -= timedelta(days=1)
+    return day
+
+
+def company_days(year: int) -> list[tuple[date, str]]:
+    """Days many private employers give on top of (or instead of) some federal
+    holidays. Not a law anywhere: each person ticks the ones their job gives."""
+    return [
+        (nth_weekday(year, 11, THU, 4) + timedelta(days=1), "Day after Thanksgiving"),
+        (before_the_holiday(date(year, 12, 24), observed(date(year, 12, 25))), "Christmas Eve"),
+        (before_the_holiday(date(year, 12, 31), observed(date(year + 1, 1, 1))), "New Year's Eve"),
+    ]
+
+
+# Picks are stored as the days a person *doesn't* get (like federal skips), so a
+# day added here later would switch on for everyone already subscribed: add it
+# to their excluded_titles in the same data migration.
+COMPANY_DAY_NAMES = tuple(name for _, name in company_days(2000))
+
+
+def company_calendar(start: date, end: date) -> Calendar:
+    """Every common company day between start and end, inclusive."""
+    return Calendar("Common company days", _between(company_days, start, end))
+
+
+def _between(rule, start: date, end: date) -> list[CalendarEvent]:
+    """A rule's days between start and end. Always generates one year past `end`,
+    so a next-year holiday observed in late December (New Year's 2028 -> Dec 31,
+    2027) isn't missed."""
+    return [
         CalendarEvent(day, day, Effect.DAY_OFF, name)
         for year in range(start.year, end.year + 2)
-        for day, name in federal_holidays(year)
+        for day, name in rule(year)
         if start <= day <= end
     ]
-    return Calendar("US Federal Holidays", events)

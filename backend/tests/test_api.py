@@ -121,6 +121,37 @@ def test_skipping_a_holiday_that_does_not_exist_is_refused(client):
     assert "Columbus day" in response.json()["detail"]
 
 
+def company_calendar_id(client):
+    return next(c["id"] for c in client.get("/calendars", params={"kind": "COMPANY"}).json())
+
+
+def test_company_days_are_free_for_people_who_get_them(client):
+    """The day after Thanksgiving costs PTO unless your job gives it; skipped ones still cost."""
+    office = adult(client, "Office", 10)
+    shop = adult(client, "Shop", 10)
+    client.post(f"/people/{office}/calendars", json={"calendar_id": company_calendar_id(client)})
+    client.post(f"/people/{shop}/calendars", json={
+        "calendar_id": company_calendar_id(client), "excluded_titles": ["Day after Thanksgiving"],
+    })
+    result = windows(client, group(client, office, shop), start="2026-11-20", end="2026-11-30", distinct=False)
+    assert find(result["windows"], "2026-11-25", "2026-11-29")["pto_cost"] == {"Office": 1, "Shop": 2}
+
+
+def test_company_days_only_take_their_own_names(client):
+    me = adult(client, "Sam", 10)
+    response = client.post(f"/people/{me}/calendars", json={
+        "calendar_id": company_calendar_id(client), "excluded_titles": ["Columbus Day"],
+    })
+    assert response.status_code == 422
+
+
+def test_company_days_cannot_be_edited(client):
+    response = client.post(f"/calendars/{company_calendar_id(client)}/events", json={
+        "title": "Party", "start_date": "2026-12-01", "end_date": "2026-12-01", "effect": "DAY_OFF",
+    })
+    assert response.status_code == 400
+
+
 def test_free_long_weekends_have_no_score(client):
     result = windows(client, group(client, adult(client, "Broke", 0)))
     assert result["windows"] == []
