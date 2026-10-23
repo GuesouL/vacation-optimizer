@@ -907,6 +907,8 @@ export interface components {
             mine: boolean;
             /** Enabled */
             enabled: boolean;
+            /** Excluded Titles */
+            excluded_titles: string[];
         };
         /** PersonIn */
         PersonIn: {

@@ -2602,6 +2602,13 @@
           "enabled": {
             "type": "boolean",
             "title": "Enabled"
+          },
+          "excluded_titles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Titles"
           }
         },
         "type": "object",
@@ -2610,7 +2617,8 @@
           "name",
           "kind",
           "mine",
-          "enabled"
+          "enabled",
+          "excluded_titles"
         ],
         "title": "PersonCalendarOut"
       },

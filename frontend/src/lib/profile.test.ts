@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { describePtoLeft, settingsTarget, updateBody } from "./profile";
 
-const base = { name: "Pat", ptoBalance: 7, workWeek: [0, 1, 2, 3], federal: true, renewal: null };
+const base = { name: "Pat", ptoBalance: 7, workWeek: [0, 1, 2, 3], skippedHolidays: [], renewal: null };
 
 describe("updateBody", () => {
   it("leaves the renewal out when there is none, so the server clears it", () => {

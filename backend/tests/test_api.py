@@ -95,6 +95,32 @@ def test_excluded_holidays_and_committed_pto(client):
     assert new_year["pto_cost"] == {"Alice": 0, "Bob": 4}
 
 
+def test_skipped_holidays_can_be_read_back_and_changed(client):
+    """Settings shows the holidays you skip, and saving again replaces the list."""
+    me = adult(client, "Sam", 10)
+
+    def skipped():
+        links = client.get(f"/people/{me}/calendars").json()
+        return next(l["excluded_titles"] for l in links if l["id"] == FEDERAL_CALENDAR_ID)
+
+    assert skipped() == []
+    for titles in (["Columbus Day", "Veterans Day"], ["Juneteenth"]):
+        response = client.post(f"/people/{me}/calendars", json={
+            "calendar_id": FEDERAL_CALENDAR_ID, "excluded_titles": titles,
+        })
+        assert response.status_code == 204
+        assert skipped() == titles
+
+
+def test_skipping_a_holiday_that_does_not_exist_is_refused(client):
+    me = adult(client, "Sam", 10)
+    response = client.post(f"/people/{me}/calendars", json={
+        "calendar_id": FEDERAL_CALENDAR_ID, "excluded_titles": ["Columbus day"],
+    })
+    assert response.status_code == 422
+    assert "Columbus day" in response.json()["detail"]
+
+
 def test_free_long_weekends_have_no_score(client):
     result = windows(client, group(client, adult(client, "Broke", 0)))
     assert result["windows"] == []

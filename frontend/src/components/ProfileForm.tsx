@@ -2,7 +2,9 @@
 
 import { type FormEvent, useState } from "react";
 
+import HolidayPicker from "@/components/HolidayPicker";
 import { errorMessage } from "@/lib/api";
+import { useFederalHolidays } from "@/lib/holidays";
 import type { Profile, Renewal } from "@/lib/profile";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -12,12 +14,12 @@ const inputClass =
 
 /**
  * Name, PTO, work week and holidays. Used by onboarding, the join page and Settings.
- * Settings passes `current` to start from what's saved, and hides the holidays
- * question (that's a calendar choice, not a personal detail).
+ * Settings passes `current` to start from what's saved.
  */
 export default function ProfileForm(props: {
   nameLabel?: string; // "Your first name" unless this form is about someone else
-  current?: { ptoBalance: number; workWeek: number[]; renewal: Renewal | null };
+  // skippedHolidays: null when they aren't on the federal calendar at all (= skip every one)
+  current?: { ptoBalance: number; workWeek: number[]; renewal: Renewal | null; skippedHolidays: string[] | null };
   initialName: string;
   submitLabel: string;
   savingLabel: string;
@@ -27,7 +29,10 @@ export default function ProfileForm(props: {
   const { current } = props;
   const [pto, setPto] = useState(String(current?.ptoBalance ?? 10));
   const [workWeek, setWorkWeek] = useState(current?.workWeek ?? [0, 1, 2, 3, 4]);
-  const [federal, setFederal] = useState(true);
+  const holidays = useFederalHolidays();
+  // null until the list loads, for someone saved with no federal holidays at all
+  const [skippedState, setSkipped] = useState<string[] | null>(current ? current.skippedHolidays : []);
+  const skipped = skippedState ?? holidays.map((h) => h.name);
   const [allowance, setAllowance] = useState(current?.renewal ? String(current.renewal.allowance) : ""); // blank = skip renewal
   const [renewMonth, setRenewMonth] = useState(String(current?.renewal?.month ?? 1));
   const [renewDay, setRenewDay] = useState(String(current?.renewal?.day ?? 1));
@@ -54,7 +59,7 @@ export default function ProfileForm(props: {
             carryoverMax: Number(carryover || 0),
           }
         : null;
-      await props.onSubmit({ name: name.trim(), ptoBalance: Number(pto), workWeek, federal, renewal });
+      await props.onSubmit({ name: name.trim(), ptoBalance: Number(pto), workWeek, skippedHolidays: skipped, renewal });
     } catch (err) {
       setError(errorMessage(err));
       setSaving(false);
@@ -116,12 +121,7 @@ export default function ProfileForm(props: {
         </div>
       </fieldset>
 
-      {!current && (
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={federal} onChange={(e) => setFederal(e.target.checked)} />
-          <span className="text-sm">I get the US federal holidays off</span>
-        </label>
-      )}
+      <HolidayPicker holidays={holidays} skipped={skipped} onChange={setSkipped} />
 
       <details open={!!current?.renewal} className="rounded-lg border border-app-line bg-app-surface p-3">
         <summary className="cursor-pointer text-sm font-medium">

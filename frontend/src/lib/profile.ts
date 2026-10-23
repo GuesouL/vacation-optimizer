@@ -6,7 +6,7 @@ export type Profile = {
   name: string;
   ptoBalance: number;
   workWeek: number[];
-  federal: boolean;
+  skippedHolidays: string[]; // federal holidays their job doesn't give; [] = all of them
   renewal: Renewal | null; // null: plan the whole year with today's balance
 };
 
@@ -40,8 +40,8 @@ export async function ensureSelf(me: Me, profile: Profile): Promise<number> {
 }
 
 /**
- * Create an adult you manage and, if they get the federal holidays, subscribe
- * them to that calendar. `isSelf` links the record to your account (once only).
+ * Create an adult you manage and put them on the federal holiday calendar, minus
+ * the holidays their job skips. `isSelf` links the record to your account (once only).
  */
 export async function createAdult(profile: Profile, isSelf: boolean): Promise<number> {
   const person = await api.POST("/people", {
@@ -59,14 +59,17 @@ export async function createAdult(profile: Profile, isSelf: boolean): Promise<nu
     },
   });
   if (!person.data) throw person.error;
-  if (profile.federal) {
-    const link = await api.POST("/people/{person_id}/calendars", {
-      params: { path: { person_id: person.data.id } },
-      body: { calendar_id: FEDERAL_CALENDAR_ID },
-    });
-    if (link.error) throw link.error;
-  }
+  await saveHolidays(person.data.id, profile.skippedHolidays);
   return person.data.id;
+}
+
+/** Save which federal holidays someone skips. Posting again replaces the list. */
+export async function saveHolidays(personId: number, skipped: string[]) {
+  const link = await api.POST("/people/{person_id}/calendars", {
+    params: { path: { person_id: personId } },
+    body: { calendar_id: FEDERAL_CALENDAR_ID, excluded_titles: skipped },
+  });
+  if (link.error) throw link.error;
 }
 
 /** Who Settings edits: the adult named in `?person=` if you manage them, otherwise you. */

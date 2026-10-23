@@ -8,7 +8,8 @@ import { Suspense, useEffect, useState } from "react";
 import ProfileForm, { ErrorNote } from "@/components/ProfileForm";
 import ReminderToggle from "@/components/ReminderToggle";
 import { api, apiToken, errorMessage, type Me } from "@/lib/api";
-import { settingsTarget, updateBody, type Profile } from "@/lib/profile";
+import { federalSkips } from "@/lib/holidays";
+import { saveHolidays, settingsTarget, updateBody, type Profile } from "@/lib/profile";
 
 // useSearchParams needs a Suspense boundary so Next can still prerender the page shell.
 export default function SettingsPage() {
@@ -19,7 +20,7 @@ export default function SettingsPage() {
   );
 }
 
-/** Change your PTO, renewal and work week after setup, or those of an adult you manage (?person=). */
+/** Change your PTO, renewal, work week and holidays after setup, or those of an adult you manage (?person=). */
 function Settings() {
   const router = useRouter();
   const params = useSearchParams();
@@ -41,6 +42,21 @@ function Settings() {
 
   const person = me ? settingsTarget(me, params.get("person")) : undefined;
   const isSelf = person != null && person.id === me?.self_person_id;
+  const personId = person?.id;
+
+  // The holidays they skip live on their calendar link, not the person row.
+  // undefined while loading; the form waits so it starts from what's saved.
+  const [skips, setSkips] = useState<{ personId: number; skipped: string[] | null }>();
+  useEffect(() => {
+    if (personId == null) return;
+    api
+      .GET("/people/{person_id}/calendars", { params: { path: { person_id: personId } } })
+      .then(({ data, error }) => {
+        if (!data) throw error;
+        setSkips({ personId, skipped: federalSkips(data) });
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [personId]);
 
   async function save(profile: Profile) {
     if (!person) return;
@@ -49,6 +65,7 @@ function Settings() {
       body: updateBody(profile),
     });
     if (error) throw error;
+    await saveHolidays(person.id, profile.skippedHolidays);
     router.push("/plan");
   }
 
@@ -57,18 +74,19 @@ function Settings() {
       <Link href="/plan" className="text-sm text-app-muted underline">Back to your plan</Link>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Settings</h1>
       <p className="mt-2 text-app-muted">
-        {isSelf ? "Update your PTO and work week." : `Update ${person?.name ?? "their"}'s PTO and work week.`} Your
+        {isSelf ? "Update your PTO, work week and holidays." : `Update ${person?.name ?? "their"}'s PTO, work week and holidays.`} Your
         suggestions re-rank as soon as you save.
       </p>
 
       {error ? (
         <div className="mt-8"><ErrorNote>{error}</ErrorNote></div>
-      ) : !me ? (
+      ) : !me || (person && skips?.personId !== person.id) ? (
         <p className="mt-8 text-app-muted">Loading…</p>
       ) : !person || person.pto_balance == null ? (
         <p className="mt-8 text-app-muted">Set up your own profile first on the home page.</p>
       ) : (
         <ProfileForm
+          key={person.id}
           initialName={person.name}
           nameLabel={isSelf ? undefined : "Their first name"}
           current={{
@@ -83,6 +101,7 @@ function Settings() {
                     carryoverMax: person.pto_carryover_max ?? 0,
                   }
                 : null,
+            skippedHolidays: skips!.skipped,
           }}
           submitLabel="Save changes"
           savingLabel="Saving…"
