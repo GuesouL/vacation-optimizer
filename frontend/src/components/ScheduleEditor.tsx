@@ -29,7 +29,8 @@ export default function ScheduleEditor(props: { person: Person; onChanged: () =>
   const [error, setError] = useState<string | null>(null);
 
   const mine = (calendars ?? []).filter((c): c is Mine => c.mine && c.kind !== "FEDERAL");
-  const shared = (calendars ?? []).filter((c) => !c.mine && c.kind !== "FEDERAL");
+  // Computed holidays (federal, company days) are set in Settings, not here.
+  const shared = (calendars ?? []).filter((c) => !c.mine && c.kind !== "FEDERAL" && c.kind !== "COMPANY");
   const current = mine.find((c) => c.id === calendarId) ?? null;
   const events = loaded?.id === calendarId ? loaded.events : [];
 

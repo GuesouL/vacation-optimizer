@@ -3,7 +3,7 @@ from datetime import date
 from fastapi.testclient import TestClient
 
 from vacation_optimizer.api import app
-from vacation_optimizer.holidays import federal_calendar, federal_holidays
+from vacation_optimizer.holidays import company_days, federal_calendar, federal_holidays
 
 
 def observed_dates(year):
@@ -37,3 +37,23 @@ def test_holidays_endpoint():
     response = TestClient(app).get("/holidays/2026")
     assert response.status_code == 200
     assert response.json()[5] == {"date": "2026-07-03", "name": "Independence Day"}
+
+
+def test_company_days_move_off_weekends_and_off_the_holiday_itself():
+    # 2027: Christmas (Sat) is observed Fri Dec 24, and New Year's 2028 (Sat) on
+    # Fri Dec 31, so both eves step back to Thursday.
+    assert company_days(2027) == [
+        (date(2027, 11, 26), "Day after Thanksgiving"),
+        (date(2027, 12, 23), "Christmas Eve"),
+        (date(2027, 12, 30), "New Year's Eve"),
+    ]
+    # 2028: Dec 24 and Dec 31 are Sundays, so the eves are the Fridays before.
+    assert [d for d, _ in company_days(2028)] == [date(2028, 11, 24), date(2028, 12, 22), date(2028, 12, 29)]
+    # 2026: plain weekdays stay put.
+    assert [d for d, _ in company_days(2026)] == [date(2026, 11, 27), date(2026, 12, 24), date(2026, 12, 31)]
+
+
+def test_company_days_endpoint():
+    response = TestClient(app).get("/company-days/2026")
+    assert response.status_code == 200
+    assert response.json()[0] == {"date": "2026-11-27", "name": "Day after Thanksgiving"}

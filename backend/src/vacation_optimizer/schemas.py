@@ -137,9 +137,9 @@ class CalendarIn(BaseModel):
     kind: CalendarKind
 
     @model_validator(mode="after")
-    def not_federal(self):
-        if self.kind is CalendarKind.FEDERAL:
-            raise ValueError("there is only one federal calendar, and it already exists")
+    def not_computed(self):
+        if self.kind.computed:
+            raise ValueError("there is only one calendar of computed holidays of each kind, and it already exists")
         return self
 
 
@@ -177,9 +177,9 @@ class IcsIn(BaseModel):
     kind: CalendarKind  # what the calendar is for; steers which events are suggested
 
     @model_validator(mode="after")
-    def not_federal(self):
-        if self.kind is CalendarKind.FEDERAL:
-            raise ValueError("federal holidays are computed, not imported")
+    def not_computed(self):
+        if self.kind.computed:
+            raise ValueError("holidays are computed, not imported")
         return self
 
 

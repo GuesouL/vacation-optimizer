@@ -48,6 +48,12 @@ class CalendarKind(Enum):
     SCHOOL = "SCHOOL"
     LEAGUE = "LEAGUE"
     CUSTOM = "CUSTOM"
+    COMPANY = "COMPANY"  # common company days (day after Thanksgiving...): also computed
+
+    @property
+    def computed(self) -> bool:
+        """Dates come from a rule in holidays.py, not stored events."""
+        return self in (CalendarKind.FEDERAL, CalendarKind.COMPANY)
 
 
 class PTOStatus(Enum):

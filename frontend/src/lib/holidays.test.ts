@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { federalSkips, holidaysYouGet, presetOf, skippedFor, upcoming } from "./holidays";
+import { companyPicks, federalSkips, holidaysYouGet, presetOf, skippedFor, skipsOn, upcoming } from "./holidays";
 
 const NAMES = [
   "New Year's Day", "Martin Luther King Jr. Day", "Presidents Day", "Memorial Day", "Juneteenth",
@@ -70,5 +70,24 @@ describe("federalSkips", () => {
   it("is null with no federal link, or a switched-off one", () => {
     expect(federalSkips([])).toBeNull();
     expect(federalSkips([{ ...link, enabled: false, excluded_titles: [] }])).toBeNull();
+  });
+});
+
+describe("company days", () => {
+  const NAMES = ["Day after Thanksgiving", "Christmas Eve", "New Year's Eve"];
+  const link = { id: 7, name: "Common company days", kind: "COMPANY" as const, mine: false, enabled: true };
+
+  it("are stored as skips, so the ones you get are the rest", () => {
+    expect(companyPicks(["Christmas Eve", "New Year's Eve"], NAMES)).toEqual(["Day after Thanksgiving"]);
+  });
+
+  it("are none at all without a link", () => {
+    expect(companyPicks(null, NAMES)).toEqual([]);
+    expect(skipsOn([], "COMPANY")).toBeNull();
+  });
+
+  it("are read off the company link, not the federal one", () => {
+    const federal = { ...link, id: 1, kind: "FEDERAL" as const, excluded_titles: ["Juneteenth"] };
+    expect(skipsOn([federal, { ...link, excluded_titles: ["Christmas Eve"] }], "COMPANY")).toEqual(["Christmas Eve"]);
   });
 });

@@ -19,7 +19,7 @@ import SharePanel from "@/components/SharePanel";
 import { textLink } from "@/components/ui";
 import { api, errorMessage, type Group, type Me, type PersonSchedule, type Search, type Trip, type Window } from "@/lib/api";
 import { addDays, type ISODate, today } from "@/lib/dates";
-import { federalSkips, holidaysYouGet } from "@/lib/holidays";
+import { federalSkips, holidaysIn, holidaysYouGet, skipsOn } from "@/lib/holidays";
 import { loadHidden, saveHidden } from "@/lib/preferences";
 import { describePtoLeft } from "@/lib/profile";
 import { isSaved, nextRenewal } from "@/lib/trips";
@@ -52,7 +52,11 @@ function Plan() {
   const [group, setGroup] = useState<Group | null>(null);
   const [search, setSearch] = useState<Search | null>(null);
   const [allHolidays, setHolidays] = useState(new Map<ISODate, string>()); // every federal holiday
-  const [skipped, setSkipped] = useState<string[] | null>([]); // the ones your job doesn't give
+  const [allCompanyDays, setCompanyDays] = useState(new Map<ISODate, string>()); // day after Thanksgiving...
+  const [skipped, setSkipped] = useState<{ federal: string[] | null; company: string[] | null }>({
+    federal: [], // the federal holidays your job doesn't give
+    company: null, // the company days it doesn't (null: none at all)
+  });
   const [selected, setSelected] = useState<Window | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0); // bump to re-fetch after a change
@@ -83,10 +87,13 @@ function Plan() {
       setMe(found.data);
 
       const years = [...new Set([start.slice(0, 4), end.slice(0, 4)])].map(Number);
-      const lists = await Promise.all(
-        years.map((year) => api.GET("/holidays/{year}", { params: { path: { year } } })),
+      const [federal, company] = await Promise.all(
+        (["federal", "company"] as const).map(async (kind) =>
+          (await Promise.all(years.map((year) => holidaysIn(kind, year)))).flat(),
+        ),
       );
-      setHolidays(new Map(lists.flatMap((l) => l.data ?? []).map((h) => [h.date, h.name])));
+      setHolidays(new Map(federal.map((h) => [h.date, h.name])));
+      setCompanyDays(new Map(company.map((h) => [h.date, h.name])));
     })().catch((err) => setError(errorMessage(err)));
   }, [status, router, start, end, version]);
 
@@ -154,7 +161,10 @@ function Plan() {
   const person = group?.people.find((p) => p.id === me?.self_person_id) ?? group?.people.find((p) => p.mine);
   const workWeek = useMemo(() => person?.work_week ?? [0, 1, 2, 3, 4], [person]);
   // The plan is drawn from your side, like the work week: a holiday you work is a workday here.
-  const holidays = useMemo(() => holidaysYouGet(allHolidays, skipped), [allHolidays, skipped]);
+  const holidays = useMemo(
+    () => new Map([...holidaysYouGet(allHolidays, skipped.federal), ...holidaysYouGet(allCompanyDays, skipped.company)]),
+    [allHolidays, allCompanyDays, skipped],
+  );
   const personId = person?.id;
   useEffect(() => {
     if (personId == null) return;
@@ -162,7 +172,7 @@ function Plan() {
       .GET("/people/{person_id}/calendars", { params: { path: { person_id: personId } } })
       .then(({ data, error }) => {
         if (!data) throw error;
-        setSkipped(federalSkips(data));
+        setSkipped({ federal: federalSkips(data), company: skipsOn(data, "COMPANY") });
       })
       .catch((err) => setError(errorMessage(err)));
   }, [personId, version]);

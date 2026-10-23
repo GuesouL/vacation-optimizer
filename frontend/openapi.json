@@ -71,6 +71,50 @@
         }
       }
     },
+    "/company-days/{year}": {
+      "get": {
+        "summary": "Company Days",
+        "description": "Common company days in `year` (day after Thanksgiving, Christmas Eve,\nNew Year's Eve), moved off weekends the way employers usually do.",
+        "operationId": "company_days_company_days__year__get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Holiday"
+                  },
+                  "title": "Response Company Days Company Days  Year  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me": {
       "get": {
         "summary": "Me",
@@ -1941,7 +1985,8 @@
           "WORK",
           "SCHOOL",
           "LEAGUE",
-          "CUSTOM"
+          "CUSTOM",
+          "COMPANY"
         ],
         "title": "CalendarKind"
       },

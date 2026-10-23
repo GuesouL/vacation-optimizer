@@ -8,7 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 import ProfileForm, { ErrorNote } from "@/components/ProfileForm";
 import ReminderToggle from "@/components/ReminderToggle";
 import { api, apiToken, errorMessage, type Me } from "@/lib/api";
-import { federalSkips } from "@/lib/holidays";
+import { federalSkips, skipsOn } from "@/lib/holidays";
 import { saveHolidays, settingsTarget, updateBody, type Profile } from "@/lib/profile";
 
 // useSearchParams needs a Suspense boundary so Next can still prerender the page shell.
@@ -46,14 +46,14 @@ function Settings() {
 
   // The holidays they skip live on their calendar link, not the person row.
   // undefined while loading; the form waits so it starts from what's saved.
-  const [skips, setSkips] = useState<{ personId: number; skipped: string[] | null }>();
+  const [skips, setSkips] = useState<{ personId: number; skipped: string[] | null; company: string[] | null }>();
   useEffect(() => {
     if (personId == null) return;
     api
       .GET("/people/{person_id}/calendars", { params: { path: { person_id: personId } } })
       .then(({ data, error }) => {
         if (!data) throw error;
-        setSkips({ personId, skipped: federalSkips(data) });
+        setSkips({ personId, skipped: federalSkips(data), company: skipsOn(data, "COMPANY") });
       })
       .catch((err) => setError(errorMessage(err)));
   }, [personId]);
@@ -65,7 +65,7 @@ function Settings() {
       body: updateBody(profile),
     });
     if (error) throw error;
-    await saveHolidays(person.id, profile.skippedHolidays);
+    await saveHolidays(person.id, profile);
     router.push("/plan");
   }
 
@@ -102,6 +102,7 @@ function Settings() {
                   }
                 : null,
             skippedHolidays: skips!.skipped,
+            skippedCompanyDays: skips!.company,
           }}
           submitLabel="Save changes"
           savingLabel="Saving…"
