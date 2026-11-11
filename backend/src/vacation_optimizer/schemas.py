@@ -149,6 +149,21 @@ class CalendarOut(ORMModel):
     kind: CalendarKind
 
 
+class DistrictCalendarOut(ORMModel):
+    id: int
+    name: str
+    school_year: str | None
+
+
+class DistrictOut(ORMModel):
+    id: int
+    name: str
+    city: str
+    state: str
+    # The newest shared calendar for this district, or null when nobody has brought one in yet.
+    calendar: DistrictCalendarOut | None = None
+
+
 class EventIn(DateRange):
     title: str = Field(min_length=1, max_length=200)
     effect: Effect

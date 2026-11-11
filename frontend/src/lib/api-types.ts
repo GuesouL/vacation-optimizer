@@ -623,6 +623,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/districts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Districts
+         * @description Up to 8 districts matching a name, city or ZIP. `state=TX` narrows it.
+         */
+        get: operations["search_districts_districts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -671,6 +691,27 @@ export interface components {
             breaks: components["schemas"]["WindowOut"][];
             /** Free Weekends */
             free_weekends: components["schemas"]["WindowOut"][];
+        };
+        /** DistrictCalendarOut */
+        DistrictCalendarOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** School Year */
+            school_year: string | null;
+        };
+        /** DistrictOut */
+        DistrictOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** City */
+            city: string;
+            /** State */
+            state: string;
+            calendar?: components["schemas"]["DistrictCalendarOut"] | null;
         };
         /**
          * Effect
@@ -2361,6 +2402,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SendResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_districts_districts_get: {
+        parameters: {
+            query: {
+                q: string;
+                state?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistrictOut"][];
                 };
             };
             /** @description Validation Error */
