@@ -113,6 +113,31 @@ class Person(Base):
     pto_blocks: Mapped[list["PTOBlock"]] = relationship(cascade="all, delete-orphan")
 
 
+class District(Base):
+    """A US school district, from the federal list (NCES Common Core of Data).
+
+    The list holds ~13,000 public districts, so it's searched by typing, never
+    scrolled. A district may or may not have a calendar yet: the first family to
+    bring one in fills it for everyone after them.
+    """
+
+    __tablename__ = "district"
+    __table_args__ = (
+        # Trigram indexes: they split text into 3-letter pieces ("bre", "ren", ...),
+        # so "contains" and "close spelling" searches don't read all 13,000 rows.
+        Index("ix_district_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index("ix_district_city_trgm", "city", postgresql_using="gin", postgresql_ops={"city": "gin_trgm_ops"}),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The federal 7-digit district id (LEAID). Unique, so re-running the import
+    # updates rows instead of adding duplicates.
+    nces_id: Mapped[str] = mapped_column(String(7), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    city: Mapped[str] = mapped_column(String(100))
+    state: Mapped[str] = mapped_column(String(2), index=True)  # "NY"
+    zip: Mapped[str] = mapped_column(String(5), index=True)  # the district office's ZIP
+
+
 class Calendar(Base):
     """A reusable set of dates, like 'NYC Public Schools 2026-27', shared by many people."""
 
@@ -121,6 +146,10 @@ class Calendar(Base):
     name: Mapped[str] = mapped_column(String(200))
     kind: Mapped[CalendarKind] = mapped_column(SAEnum(CalendarKind, name="calendar_kind"))
     owner_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"))  # NULL = shared
+    # Set on a district's shared school calendar. One per school year, so next
+    # year's calendar sits beside this one instead of replacing it.
+    district_id: Mapped[int | None] = mapped_column(ForeignKey("district.id", ondelete="SET NULL"), index=True)
+    school_year: Mapped[str | None] = mapped_column(String(7))  # "2026-27"
 
     events: Mapped[list["CalendarEvent"]] = relationship(
         cascade="all, delete-orphan", order_by="CalendarEvent.start_date"
