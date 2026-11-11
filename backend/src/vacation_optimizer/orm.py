@@ -26,7 +26,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from .models import Effect
@@ -281,3 +281,21 @@ class ShareLink(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     group: Mapped[Group] = relationship()
+
+
+class PdfRead(Base):
+    """What we read out of one PDF calendar, kept so the same file is never read twice.
+
+    Keyed by the file's SHA-256 fingerprint: identical bytes give an identical key, so
+    the tenth family in a district uploading the same PDF gets the answer for free.
+    Only the suggested dates are kept, never the file itself. AI rows also count
+    toward the daily and monthly limits in pdf_preview.py.
+    """
+
+    __tablename__ = "pdf_read"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id", ondelete="SET NULL"), index=True)
+    method: Mapped[str] = mapped_column(String(4))  # "TEXT" (free) or "AI" (Claude)
+    events: Mapped[list[dict]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

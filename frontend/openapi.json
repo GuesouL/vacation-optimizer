@@ -1971,6 +1971,50 @@
           }
         }
       }
+    },
+    "/calendars/pdf-preview": {
+      "post": {
+        "summary": "Pdf Preview",
+        "description": "Read a PDF calendar and suggest events. Saves no schedule: see the module docstring.",
+        "operationId": "pdf_preview_calendars_pdf_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdfIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfPreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2189,7 +2233,8 @@
         "type": "string",
         "enum": [
           "DAY_OFF",
-          "BUSY"
+          "BUSY",
+          "NOTE"
         ],
         "title": "Effect"
       },
@@ -2762,6 +2807,83 @@
           "COMMITTED"
         ],
         "title": "PTOStatus"
+      },
+      "PdfIn": {
+        "properties": {
+          "data_base64": {
+            "type": "string",
+            "maxLength": 7000000,
+            "title": "Data Base64",
+            "description": "The PDF file, base64-encoded"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_base64",
+          "kind"
+        ],
+        "title": "PdfIn"
+      },
+      "PdfPreviewOut": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/IcsEventOut"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "skipped_recurring": {
+            "type": "integer",
+            "title": "Skipped Recurring"
+          },
+          "skipped_too_long": {
+            "type": "integer",
+            "title": "Skipped Too Long"
+          },
+          "skipped_invalid": {
+            "type": "integer",
+            "title": "Skipped Invalid"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "AI",
+              "CACHE",
+              "NONE"
+            ],
+            "title": "Method"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events",
+          "skipped_recurring",
+          "skipped_too_long",
+          "skipped_invalid",
+          "truncated",
+          "method"
+        ],
+        "title": "PdfPreviewOut"
       },
       "PersonCalendarOut": {
         "properties": {

@@ -5,7 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import IcsImport from "@/components/IcsImport";
 import { api, type CalendarEvent, type CalendarInfo, errorMessage } from "@/lib/api";
 import { formatRange, type ISODate } from "@/lib/dates";
-import { type CalendarKind, effectLabel, kindsFor, rangeProblem, summerBreak } from "@/lib/schedule";
+import { type CalendarKind, type Effect, effectLabel, kindsFor, rangeProblem, summerBreak } from "@/lib/schedule";
 
 type Person = { id: number; name: string; kind: "ADULT" | "CHILD" | "GUEST" };
 type Mine = CalendarInfo & { kind: CalendarKind }; // your own calendars are never the computed federal one
@@ -69,7 +69,7 @@ export default function ScheduleEditor(props: { person: Person; onChanged: () =>
     done();
   }
 
-  const addEvents = (drafts: { title: string; start_date: ISODate; end_date: ISODate; effect: "DAY_OFF" | "BUSY" }[]) =>
+  const addEvents = (drafts: { title: string; start_date: ISODate; end_date: ISODate; effect: Effect }[]) =>
     attempt(
       () => api.POST("/calendars/{calendar_id}/events/bulk", {
         params: { path: { calendar_id: calendarId! } },
@@ -174,12 +174,12 @@ function EventList(props: { events: CalendarEvent[]; kind: CalendarKind; onDelet
 
 function AddEvent(props: {
   kind: CalendarKind;
-  onAdd: (draft: { title: string; start_date: ISODate; end_date: ISODate; effect: "DAY_OFF" | "BUSY" }) => Promise<void>;
+  onAdd: (draft: { title: string; start_date: ISODate; end_date: ISODate; effect: Effect }) => Promise<void>;
 }) {
   const [title, setTitle] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [effect, setEffect] = useState<"DAY_OFF" | "BUSY">(props.kind === "SCHOOL" ? "DAY_OFF" : "BUSY");
+  const [effect, setEffect] = useState<Effect>(props.kind === "SCHOOL" ? "DAY_OFF" : "BUSY");
   const [problem, setProblem] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
@@ -224,6 +224,7 @@ function AddEvent(props: {
         <select value={effect} onChange={(e) => setEffect(e.target.value as typeof effect)} className={input}>
           <option value="DAY_OFF">{effectLabel("DAY_OFF", props.kind)} (a free day)</option>
           <option value="BUSY">Busy (a trip can&apos;t include it)</option>
+          {props.kind === "SCHOOL" && <option value="NOTE">{effectLabel("NOTE", props.kind)} (school is open; just so you know)</option>}
         </select>
       </label>
       {problem && <p role="alert" className="text-app-danger">{problem}</p>}

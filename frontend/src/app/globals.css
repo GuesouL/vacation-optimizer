@@ -29,6 +29,7 @@
   --app-holiday: #1f6b40;        /* dot */
   --app-school: #a43a88;         /* thin bar: school break or day off */
   --app-busy: #bf1d36;           /* thick bar: busy */
+  --app-note: #1d5fa3;           /* ring: half day or other note (school is open) */
   --app-danger: #9b1c2e;
   --app-danger-soft: #f8dde1;
 }
@@ -53,6 +54,7 @@
   --color-app-holiday: var(--app-holiday);
   --color-app-school: var(--app-school);
   --color-app-busy: var(--app-busy);
+  --color-app-note: var(--app-note);
   --color-app-danger: var(--app-danger);
   --color-app-danger-soft: var(--app-danger-soft);
   --font-sans: var(--font-figtree);
@@ -84,6 +86,7 @@
   --app-holiday: #7fcf9b;
   --app-school: #f29ad0;
   --app-busy: #ff5d73;
+  --app-note: #8cc4ff;
   --app-danger: #ff8a99;
   --app-danger-soft: #3a1a1f;
 }

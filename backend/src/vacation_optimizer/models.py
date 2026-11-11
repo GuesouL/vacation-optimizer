@@ -17,6 +17,7 @@ MON_TO_FRI = frozenset(range(5))  # date.weekday(): Mon=0 ... Sun=6
 class Effect(Enum):
     DAY_OFF = "DAY_OFF"  # a holiday or school break: frees the day
     BUSY = "BUSY"  # a tournament or finals week: blocks the day, always wins
+    NOTE = "NOTE"  # a half day or early dismissal: shown on the calendar, never changes a day
 
 
 class DayStatus(Enum):

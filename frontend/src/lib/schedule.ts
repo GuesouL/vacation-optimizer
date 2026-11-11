@@ -13,9 +13,11 @@ export function kindsFor(person: "ADULT" | "CHILD" | "GUEST"): { kind: CalendarK
     : [{ kind: "WORK", label: "Work blackout dates" }, sports, { kind: "CUSTOM", label: "Personal obligations" }];
 }
 
-/** DAY_OFF means a free day (a school break); BUSY means a day they can't go. */
+/** DAY_OFF means a free day (a school break); BUSY means a day they can't go;
+ * NOTE is a school day worth knowing about (a half day), and changes nothing. */
 export function effectLabel(effect: Effect, kind: string): string {
   if (effect === "BUSY") return "Busy";
+  if (effect === "NOTE") return kind === "SCHOOL" ? "Half day / note" : "Note";
   return kind === "SCHOOL" ? "No school" : "Day off";
 }
 
@@ -58,8 +60,9 @@ export function skippedNote(p: Pick<IcsPreview, "skipped_recurring" | "skipped_t
   return parts.length ? `Left out: ${parts.join(", ")}.` : "";
 }
 
-/** What to draw on one day of the calendar: a line for each person who is off or busy. */
-export type DayMark = { off: string[]; busy: string[] };
+/** What to draw on one day of the calendar: a line for each person who is off, busy,
+ * or has a note (a half day). Notes sit beside the other two and never replace them. */
+export type DayMark = { off: string[]; busy: string[]; notes: string[] };
 
 /**
  * Lay the schedules out day by day for the calendar.
@@ -71,17 +74,20 @@ export type DayMark = { off: string[]; busy: string[] };
 export function buildDayMarks(schedules: PersonSchedule[], from: ISODate, to: ISODate): Map<ISODate, DayMark> {
   const marks = new Map<ISODate, DayMark>();
   for (const person of schedules) {
-    const days = new Map<ISODate, { off: string[]; busy: string[]; kind: string }>();
+    const days = new Map<ISODate, { off: string[]; busy: string[]; notes: string[]; kind: string }>();
     for (const item of person.items) {
       const last = item.end_date < to ? item.end_date : to;
       for (let day = item.start_date < from ? from : item.start_date; day <= last; day = addDays(day, 1)) {
-        const entry = days.get(day) ?? { off: [], busy: [], kind: item.kind };
-        (item.effect === "BUSY" ? entry.busy : entry.off).push(item.title);
+        const entry = days.get(day) ?? { off: [], busy: [], notes: [], kind: item.kind };
+        (item.effect === "BUSY" ? entry.busy : item.effect === "NOTE" ? entry.notes : entry.off).push(item.title);
         days.set(day, entry);
       }
     }
     for (const [day, entry] of days) {
-      const mark = marks.get(day) ?? { off: [], busy: [] };
+      const mark = marks.get(day) ?? { off: [], busy: [], notes: [] };
+      if (entry.notes.length) mark.notes.push(`${person.name}: ${entry.notes.join(", ")}`);
+      marks.set(day, mark);
+      if (!entry.busy.length && !entry.off.length) continue;
       const busy = entry.busy.length > 0;
       const titles = (busy ? entry.busy : entry.off).join(", ");
       const effect: Effect = busy ? "BUSY" : "DAY_OFF";
