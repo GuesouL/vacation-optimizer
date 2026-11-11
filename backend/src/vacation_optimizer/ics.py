@@ -55,6 +55,14 @@ class IcsResult:
     truncated: bool = False
 
 
+# Titles that mean "school is open, but it's worth knowing". Checked before the day-off
+# words, so "Half day before Thanksgiving" is a half day, not Thanksgiving.
+NOTE_WORDS = (
+    "half day", "half-day", "1/2 day", "early dismissal", "early release", "early closing",
+    "first day of school", "last day of school",
+)
+
+
 def suggest(title: str, kind: CalendarKind, timed: bool) -> tuple[Effect, bool]:
     """Guess the effect and whether to tick it. The user always has the last word.
 
@@ -64,6 +72,8 @@ def suggest(title: str, kind: CalendarKind, timed: bool) -> tuple[Effect, bool]:
     Timed events are never ticked: a 7pm game doesn't block a whole vacation.
     """
     lowered = title.lower()
+    if kind is CalendarKind.SCHOOL and any(word in lowered for word in NOTE_WORDS):
+        return Effect.NOTE, not timed
     if any(word in lowered for word in DAY_OFF_WORDS):
         return Effect.DAY_OFF, not timed
     return Effect.BUSY, not timed and kind is not CalendarKind.SCHOOL

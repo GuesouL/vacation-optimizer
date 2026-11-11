@@ -61,7 +61,7 @@ export function MonthGrid({ year, month, start, holidays, workWeek, selected, sa
           const holiday = holidays.get(day);
           const fill = dayFill(day, { holidays, workWeek, selected, saved, picks });
           const mark = marks?.get(day);
-          const tooltip = [holiday ? `${formatDate(day)}: ${holiday}` : formatDate(day), ...(mark?.off ?? []), ...(mark?.busy ?? [])];
+          const tooltip = [holiday ? `${formatDate(day)}: ${holiday}` : formatDate(day), ...(mark?.off ?? []), ...(mark?.busy ?? []), ...(mark?.notes ?? [])];
           const Cell = onDay ? "button" : "div";
           return (
             <Cell
@@ -81,7 +81,10 @@ export function MonthGrid({ year, month, start, holidays, workWeek, selected, sa
               {holiday && (
                 <span className="absolute left-1/2 top-0.5 h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-app-holiday" />
               )}
-              {mark && (
+              {mark && mark.notes.length > 0 && (
+                <span className="absolute right-0.5 top-0.5 h-[5px] w-[5px] rounded-full border border-app-note" />
+              )}
+              {mark && (mark.off.length > 0 || mark.busy.length > 0) && (
                 <span className="absolute inset-x-[3px] bottom-px flex items-end gap-px">
                   {mark.off.length > 0 && <span className="h-[3px] flex-1 rounded-sm bg-app-school" />}
                   {mark.busy.length > 0 && <span className="h-1 flex-1 rounded-sm bg-app-busy" />}

@@ -133,6 +133,29 @@ No code changes: invite links are built from the address you're on, so links mad
 The API still lives at its `onrender.com` address; giving it `api.bridgeday.app` would also mean changing
 `NEXT_PUBLIC_API_URL` (and rebuilding Vercel) and the GitHub `API_URL` secret.
 
+## 9. School districts and PDF calendars (optional)
+
+**District list.** "Add a kid" searches every US school district. The list comes from the
+federal NCES "LEA Directory" file and is loaded by a script, once a year:
+
+1. Download the newest LEA Directory CSV from https://nces.ed.gov/ccd/files.asp and unzip it.
+2. From `backend/`: `DATABASE_URL=<Neon direct URL> uv run python scripts/import_districts.py <file>.csv`.
+   Safe to re-run: districts are matched on their federal id, so nothing is duplicated.
+
+**Reading scanned PDFs.** PDFs with real text are read for free. Scans and shaded month grids
+are read by Claude Haiku (about $0.001 per calendar), and only if a key is set:
+
+1. At https://console.anthropic.com create an API key, add billing, and set a **monthly spend
+   limit** (e.g. $5) under Limits. That limit is the hard ceiling: the API stops at it.
+2. **Render** environment variable: `ANTHROPIC_API_KEY`. Optional, with their defaults:
+   `PDF_AI_DAILY_PER_ACCOUNT=5` (AI reads per account per day) and `PDF_AI_MONTHLY_LIMIT=2000`
+   (AI reads per month for everyone). Redeploy.
+3. Without the key, everything still works: scanned PDFs just say they can't be read
+   automatically yet, and people type the dates in.
+
+The same file is never read twice: what each PDF said is kept by its SHA-256 fingerprint
+(table `pdf_read`), never the file itself.
+
 ## What this doesn't cover yet
 
 - Database backups (Neon keeps short history on the free plan; export before anything risky).

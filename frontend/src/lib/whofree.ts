@@ -3,7 +3,7 @@ import { formatDate, type ISODate, weekday } from "./dates";
 
 type Range = { start: ISODate; end: ISODate };
 type Person = { name: string; kind: "ADULT" | "CHILD" | "GUEST"; mine: boolean; workWeek?: number[] | null };
-type Schedule = { person_id: number; items: { start_date: ISODate; end_date: ISODate; effect: "DAY_OFF" | "BUSY" }[] };
+type Schedule = { person_id: number; items: { start_date: ISODate; end_date: ISODate; effect: "DAY_OFF" | "BUSY" | "NOTE" }[] };
 
 /** One line of "Who's free": ok = free, false = a conflict, null = we can't see their dates. */
 export type WhoRow = { name: string; ok: boolean | null; note: string };

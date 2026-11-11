@@ -643,6 +643,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/calendars/pdf-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pdf Preview
+         * @description Read a PDF calendar and suggest events. Saves no schedule: see the module docstring.
+         */
+        post: operations["pdf_preview_calendars_pdf_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -717,7 +737,7 @@ export interface components {
          * Effect
          * @enum {string}
          */
-        Effect: "DAY_OFF" | "BUSY";
+        Effect: "DAY_OFF" | "BUSY" | "NOTE";
         /** EventIn */
         EventIn: {
             /**
@@ -958,6 +978,35 @@ export interface components {
          * @enum {string}
          */
         PTOStatus: "PROPOSED" | "COMMITTED";
+        /** PdfIn */
+        PdfIn: {
+            /**
+             * Data Base64
+             * @description The PDF file, base64-encoded
+             */
+            data_base64: string;
+            kind: components["schemas"]["CalendarKind"];
+        };
+        /** PdfPreviewOut */
+        PdfPreviewOut: {
+            /** Events */
+            events: components["schemas"]["IcsEventOut"][];
+            /** Skipped Recurring */
+            skipped_recurring: number;
+            /** Skipped Too Long */
+            skipped_too_long: number;
+            /** Skipped Invalid */
+            skipped_invalid: number;
+            /** Truncated */
+            truncated: boolean;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "TEXT" | "AI" | "CACHE" | "NONE";
+            /** Note */
+            note?: string | null;
+        };
         /** PersonCalendarOut */
         PersonCalendarOut: {
             /** Id */
@@ -2434,6 +2483,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DistrictOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pdf_preview_calendars_pdf_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PdfIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PdfPreviewOut"];
                 };
             };
             /** @description Validation Error */

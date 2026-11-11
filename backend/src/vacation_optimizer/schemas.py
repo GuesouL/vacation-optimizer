@@ -5,7 +5,7 @@ error, and generate the OpenAPI schema the TypeScript front end will be built fr
 """
 
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -213,6 +213,25 @@ class IcsPreviewOut(BaseModel):
     skipped_too_long: int
     skipped_invalid: int
     truncated: bool
+
+
+class PdfIn(BaseModel):
+    # 5 MB of PDF is about 6.7 MB once base64-encoded; pdf_calendar checks the real size.
+    data_base64: str = Field(max_length=7_000_000, description="The PDF file, base64-encoded")
+    kind: CalendarKind
+
+    @model_validator(mode="after")
+    def not_computed(self):
+        if self.kind.computed:
+            raise ValueError("holidays are computed, not imported")
+        return self
+
+
+class PdfPreviewOut(IcsPreviewOut):
+    # How the dates were found: TEXT (read for free), AI (Claude read the pages),
+    # CACHE (someone already uploaded this exact file), or NONE (nothing could read it).
+    method: Literal["TEXT", "AI", "CACHE", "NONE"]
+    note: str | None = None  # a sentence for the screen, e.g. why the AI wasn't used
 
 
 class ScheduleItemOut(BaseModel):

@@ -39,7 +39,7 @@ export function describeDay(
     workWeek: number[];
     selected: { start: ISODate; end: ISODate } | null;
     saved: { start_date: ISODate; end_date: ISODate }[];
-    marks: Map<ISODate, { off: string[]; busy: string[] }>;
+    marks: Map<ISODate, { off: string[]; busy: string[]; notes?: string[] }>;
     picks?: { start: ISODate; end: ISODate }[];
   },
 ): string {
@@ -54,7 +54,7 @@ export function describeDay(
     parts.push("Part of a good pick");
   }
   const mark = ctx.marks.get(day);
-  if (mark) parts.push(...mark.off, ...mark.busy);
+  if (mark) parts.push(...mark.off, ...mark.busy, ...(mark.notes ?? []));
   if (!parts.length) parts.push(workday ? "Nothing planned" : "Day off");
   return parts.join(" · ");
 }

@@ -66,7 +66,7 @@ describe("import review", () => {
 });
 
 const person = (name: string, items: PersonSchedule["items"]): PersonSchedule => ({ person_id: 1, name, kind: "CHILD", items });
-const item = (title: string, start: string, end: string, effect: "DAY_OFF" | "BUSY" = "DAY_OFF", kind: PersonSchedule["items"][number]["kind"] = "SCHOOL") => ({
+const item = (title: string, start: string, end: string, effect: "DAY_OFF" | "BUSY" | "NOTE" = "DAY_OFF", kind: PersonSchedule["items"][number]["kind"] = "SCHOOL") => ({
   title, start_date: start, end_date: end, effect, kind,
 });
 
@@ -74,7 +74,7 @@ describe("buildDayMarks", () => {
   it("marks every day of a break, both ends included", () => {
     const marks = buildDayMarks([person("Noah", [item("Spring break", "2027-04-05", "2027-04-09")])], "2027-01-01", "2027-12-31");
     expect([...marks.keys()]).toEqual(["2027-04-05", "2027-04-06", "2027-04-07", "2027-04-08", "2027-04-09"]);
-    expect(marks.get("2027-04-05")).toEqual({ off: ["Noah: Spring break (No school)"], busy: [] });
+    expect(marks.get("2027-04-05")).toEqual({ off: ["Noah: Spring break (No school)"], busy: [], notes: [] });
   });
 
   it("keeps only the days on screen", () => {
@@ -88,8 +88,8 @@ describe("buildDayMarks", () => {
       [person("Noah", [item("Spring break", "2027-04-05", "2027-04-09"), item("Tournament", "2027-04-07", "2027-04-07", "BUSY", "LEAGUE")])],
       "2027-01-01", "2027-12-31",
     );
-    expect(marks.get("2027-04-06")).toEqual({ off: ["Noah: Spring break (No school)"], busy: [] });
-    expect(marks.get("2027-04-07")).toEqual({ off: [], busy: ["Noah: Tournament (Busy)"] });
+    expect(marks.get("2027-04-06")).toEqual({ off: ["Noah: Spring break (No school)"], busy: [], notes: [] });
+    expect(marks.get("2027-04-07")).toEqual({ off: [], busy: ["Noah: Tournament (Busy)"], notes: [] });
   });
 
   it("lists each person on a shared day and says 'Day off' outside school calendars", () => {
@@ -98,5 +98,14 @@ describe("buildDayMarks", () => {
       "2027-01-01", "2027-12-31",
     );
     expect(marks.get("2027-04-05")?.off).toEqual(["Noah: Break (No school)", "Ana: Company day (Day off)"]);
+  });
+
+  it("shows a half day as a note, never as a day off", () => {
+    const marks = buildDayMarks(
+      [person("Noah", [item("Half day", "2026-11-25", "2026-11-25", "NOTE"), item("Thanksgiving", "2026-11-26", "2026-11-27")])],
+      "2026-11-01", "2026-11-30",
+    );
+    expect(marks.get("2026-11-25")).toEqual({ off: [], busy: [], notes: ["Noah: Half day"] });
+    expect(marks.get("2026-11-26")?.notes).toEqual([]);
   });
 });

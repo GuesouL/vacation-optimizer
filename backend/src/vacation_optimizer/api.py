@@ -11,7 +11,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import districts, orm, reminders, schedule, sharing, trips
+from . import districts, orm, pdf_preview, reminders, schedule, sharing, trips
 from .access import (
     can_see_group,
     manages,
@@ -292,3 +292,4 @@ app.include_router(trips.router)
 app.include_router(schedule.router)
 app.include_router(reminders.router)
 app.include_router(districts.router)
+app.include_router(pdf_preview.router)

@@ -248,6 +248,7 @@ function Plan() {
         <>
           <span className="inline-flex items-center gap-1"><i className="inline-block h-1 w-2.5 rounded-sm bg-app-school" />No school</span>
           <span className="inline-flex items-center gap-1"><i className="inline-block h-1 w-2.5 rounded-sm bg-app-busy" />Busy</span>
+          <span className="inline-flex items-center gap-1"><i className="inline-block h-[7px] w-[7px] rounded-full border border-app-note" />Half day / note</span>
         </>
       )}
     </p>

@@ -26,8 +26,8 @@ def timeline(person: Person, start: date, end: date) -> list[DayStatus]:
     busy: set[date] = set()
     for calendar in person.calendars:
         for event in calendar.events:
-            if event.title in person.excluded_events:
-                continue
+            if event.title in person.excluded_events or event.effect is Effect.NOTE:
+                continue  # a half day is still a school day: it's for reading, not planning
             target = busy if event.effect is Effect.BUSY else free
             target.update(event.days())
     for block in person.committed_pto:
