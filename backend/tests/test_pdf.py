@@ -3,14 +3,23 @@
 import base64
 from datetime import date
 
+import anthropic
+import httpx
 import pytest
 
-from vacation_optimizer import pdf_preview
+from vacation_optimizer import pdf_calendar, pdf_preview
 from vacation_optimizer.engine import timeline
 from vacation_optimizer.ics import suggest
 from vacation_optimizer.models import Calendar, CalendarEvent, DayStatus, Effect, Person
 from vacation_optimizer.orm import CalendarKind
-from vacation_optimizer.pdf_calendar import AiCalendar, AiEvent, from_ai, looks_complete, open_pdf, parse_text
+from vacation_optimizer.pdf_calendar import (
+    AiCalendar,
+    AiEvent,
+    from_ai,
+    looks_complete,
+    open_pdf,
+    parse_text,
+)
 
 # A school calendar written out in sentences, the way Word or Excel exports often are.
 TEXT_CALENDAR = [
@@ -201,3 +210,54 @@ def test_notes_can_be_saved_and_shown(client):
     assert saved.status_code in (200, 201), saved.text
     events = client.get(f"/calendars/{calendar}/events").json()
     assert events[0]["effect"] == "NOTE"
+
+
+# --- Logging in to Anthropic ---------------------------------------------
+
+FEDERATION_VARS = (
+    "ANTHROPIC_API_KEY", "ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID",
+    "ANTHROPIC_IDENTITY_TOKEN", "ANTHROPIC_IDENTITY_TOKEN_FILE",
+)
+
+
+@pytest.mark.parametrize("settings, expected", [
+    ({}, False),
+    ({"ANTHROPIC_API_KEY": "sk-ant-test"}, True),
+    # OIDC: a rule, an organization, and a short-lived identity token (as a file or a value).
+    ({"ANTHROPIC_FEDERATION_RULE_ID": "rule", "ANTHROPIC_ORGANIZATION_ID": "org",
+      "ANTHROPIC_IDENTITY_TOKEN_FILE": "/var/run/token"}, True),
+    ({"ANTHROPIC_FEDERATION_RULE_ID": "rule", "ANTHROPIC_ORGANIZATION_ID": "org",
+      "ANTHROPIC_IDENTITY_TOKEN": "jwt"}, True),
+    # Half set up is still off: without the token there's nothing to prove who we are.
+    ({"ANTHROPIC_FEDERATION_RULE_ID": "rule", "ANTHROPIC_ORGANIZATION_ID": "org"}, False),
+])
+def test_reader_is_on_with_a_key_or_oidc(monkeypatch, settings, expected):
+    for name in FEDERATION_VARS:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in settings.items():
+        monkeypatch.setenv(name, value)
+    assert pdf_calendar.ai_available() is expected
+
+
+def _refused(status: int):
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status, request=request, json={"type": "error", "error": {"message": "nope"}})
+    cls = anthropic.AuthenticationError if status == 401 else anthropic.PermissionDeniedError
+    return cls("refused", response=response, body=None)
+
+
+@pytest.mark.parametrize("error", [_refused(401), _refused(403), anthropic.CredentialsError("token exchange failed")])
+def test_a_refused_login_is_logged_clearly(monkeypatch, caplog, error):
+    """An expired key must not look like a busy server: it's logged as an error that names the cause."""
+    class FakeMessages:
+        def parse(self, **_):
+            raise error
+
+    class FakeClient:
+        def __init__(self, **_):
+            self.messages = FakeMessages()
+
+    monkeypatch.setattr(anthropic, "Anthropic", FakeClient)
+    with pytest.raises(pdf_calendar.PdfError, match="switched off"):
+        pdf_calendar.ask_claude(b"%PDF-1.4")
+    assert any(r.levelname == "ERROR" and "login failed" in r.message for r in caplog.records)

@@ -152,6 +152,25 @@ are read by Claude Haiku (about $0.001 per calendar), and only if a key is set:
    (AI reads per month for everyone). Redeploy.
 3. Without the key, everything still works: scanned PDFs just say they can't be read
    automatically yet, and people type the dates in.
+4. **Keys expire.** The console sets an expiry date on each key (30 days by default when this
+   was written). When it passes, uploads say "the calendar reader is switched off right now"
+   and Render's logs show `Anthropic login failed`. Fix: create a new key, paste it into
+   Render, redeploy. To stop doing that every month, use OIDC instead (next part).
+
+**Logging in without a key (OIDC, recommended once the reader works).** Instead of a stored
+key, Render proves "I am the BridgeDay server" with a short-lived signed token, and Anthropic
+swaps it for a short-lived API token. Nothing long-lived exists to leak, expire or rotate.
+Render offers this on the Anthropic key's page ("Use OIDC").
+
+1. Follow Render's "Use OIDC" setup. In the Anthropic console that means registering Render as
+   a trusted issuer and creating a federation rule (who may log in, into which workspace).
+2. The anthropic library reads these Render variables on its own:
+   `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID`, and the identity token as
+   `ANTHROPIC_IDENTITY_TOKEN_FILE` (a path) or `ANTHROPIC_IDENTITY_TOKEN`. Optional:
+   `ANTHROPIC_SERVICE_ACCOUNT_ID`, `ANTHROPIC_WORKSPACE_ID`. If Render names them differently,
+   copy their values into these names.
+3. **Delete `ANTHROPIC_API_KEY` from Render** (a key, if present, wins over OIDC), redeploy,
+   upload a scanned PDF, then delete the old key in the Anthropic console.
 
 The same file is never read twice: what each PDF said is kept by its SHA-256 fingerprint
 (table `pdf_read`), never the file itself.
