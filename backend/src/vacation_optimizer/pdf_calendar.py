@@ -161,7 +161,19 @@ Rules:
 
 
 def ai_available() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    """Is the AI reader switched on? Either of two ways of logging in to Anthropic counts:
+
+    - an API key (`ANTHROPIC_API_KEY`): simple, but it's a long-lived secret that expires
+      on the date set in the Anthropic console, and anyone who copies it can use it;
+    - workload identity federation (OIDC): the host proves who it is with a short-lived
+      token and swaps it for an Anthropic token. Nothing long-lived to leak or rotate.
+      The anthropic library finds these settings on its own; we only check they're there.
+    """
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return True
+    federation = os.environ.get("ANTHROPIC_FEDERATION_RULE_ID") and os.environ.get("ANTHROPIC_ORGANIZATION_ID")
+    identity = os.environ.get("ANTHROPIC_IDENTITY_TOKEN_FILE") or os.environ.get("ANTHROPIC_IDENTITY_TOKEN")
+    return bool(federation and identity)
 
 
 def ask_claude(data: bytes) -> AiCalendar:
@@ -185,6 +197,11 @@ def ask_claude(data: bytes) -> AiCalendar:
             }],
             output_format=AiCalendar,
         )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.CredentialsError) as error:
+        # Not the user's fault and not a busy server: our login to Anthropic was refused.
+        # Usually an expired or deleted API key. Logged as an error so it stands out in Render.
+        log.error("Anthropic login failed (expired or revoked API key, or OIDC set up wrong?): %s", error)
+        raise PdfError("The calendar reader is switched off right now. You can type the dates in instead.") from error
     except anthropic.APIError as error:
         log.warning("Claude couldn't read a PDF calendar: %s", error)
         raise PdfError("The calendar reader is busy right now. Try again in a minute, or type the dates in.") from error
