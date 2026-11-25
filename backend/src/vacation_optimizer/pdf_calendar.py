@@ -160,20 +160,33 @@ Rules:
 - Do not invent dates. If nothing in the file is a school calendar, return no events."""
 
 
-def ai_available() -> bool:
-    """Is the AI reader switched on? Either of two ways of logging in to Anthropic counts:
+FEDERATION_SETTINGS = ("ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID")
+IDENTITY_TOKEN_SETTINGS = ("ANTHROPIC_IDENTITY_TOKEN_FILE", "ANTHROPIC_IDENTITY_TOKEN")
+
+
+def ai_status() -> tuple[bool, str]:
+    """Is the AI reader switched on, and how? Either of two ways of logging in to Anthropic counts:
 
     - an API key (`ANTHROPIC_API_KEY`): simple, but it's a long-lived secret that expires
       on the date set in the Anthropic console, and anyone who copies it can use it;
     - workload identity federation (OIDC): the host proves who it is with a short-lived
       token and swaps it for an Anthropic token. Nothing long-lived to leak or rotate.
       The anthropic library finds these settings on its own; we only check they're there.
+
+    The message names settings, never their values, so it is safe to log.
     """
     if os.environ.get("ANTHROPIC_API_KEY"):
-        return True
-    federation = os.environ.get("ANTHROPIC_FEDERATION_RULE_ID") and os.environ.get("ANTHROPIC_ORGANIZATION_ID")
-    identity = os.environ.get("ANTHROPIC_IDENTITY_TOKEN_FILE") or os.environ.get("ANTHROPIC_IDENTITY_TOKEN")
-    return bool(federation and identity)
+        return True, "ON, using ANTHROPIC_API_KEY"
+    missing = [name for name in FEDERATION_SETTINGS if not os.environ.get(name)]
+    if not any(os.environ.get(name) for name in IDENTITY_TOKEN_SETTINGS):
+        missing.append(IDENTITY_TOKEN_SETTINGS[0])
+    if not missing:
+        return True, "ON, using OIDC (workload identity federation)"
+    return False, "OFF, missing " + ", ".join(missing)
+
+
+def ai_available() -> bool:
+    return ai_status()[0]
 
 
 def ask_claude(data: bytes) -> AiCalendar:

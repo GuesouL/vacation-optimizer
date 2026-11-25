@@ -1,5 +1,6 @@
 """FastAPI app: the HTTP layer over the database and the optimizer engine."""
 
+import logging
 import os
 from datetime import date
 from typing import Annotated
@@ -11,7 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import districts, orm, pdf_preview, reminders, schedule, sharing, trips
+from . import districts, orm, pdf_calendar, pdf_preview, reminders, schedule, sharing, trips
 from .access import (
     can_see_group,
     manages,
@@ -51,6 +52,17 @@ from .search import SearchParams, load_group, search_group
 from .trips import Today
 
 app = FastAPI(title="BridgeDay")
+
+# Our own log lines (vacation_optimizer.*) go to the server output at INFO and up, so they
+# show in Render's Logs tab. Without this, Python drops INFO lines that aren't uvicorn's.
+log = logging.getLogger("vacation_optimizer")
+if not log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    log.addHandler(_handler)
+    log.setLevel(logging.INFO)
+# One line at startup says whether PDF scans can be read, and if not, which setting is missing.
+log.info("PDF AI reader: %s", pdf_calendar.ai_status()[1])
 
 # Browsers block a page on one address (localhost:3000) from calling an API on
 # another (localhost:8000) unless the API says that page is allowed. That's CORS.
