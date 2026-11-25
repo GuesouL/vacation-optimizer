@@ -261,3 +261,18 @@ def test_a_refused_login_is_logged_clearly(monkeypatch, caplog, error):
     with pytest.raises(pdf_calendar.PdfError, match="switched off"):
         pdf_calendar.ask_claude(b"%PDF-1.4")
     assert any(r.levelname == "ERROR" and "login failed" in r.message for r in caplog.records)
+
+
+def test_status_names_what_is_missing_but_never_values(monkeypatch):
+    for name in FEDERATION_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ANTHROPIC_FEDERATION_RULE_ID", "rule-secretish-value")
+    on, message = pdf_calendar.ai_status()
+    assert not on
+    assert message == "OFF, missing ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_IDENTITY_TOKEN_FILE"
+    monkeypatch.setenv("ANTHROPIC_ORGANIZATION_ID", "org")
+    monkeypatch.setenv("ANTHROPIC_IDENTITY_TOKEN_FILE", "/var/run/token")
+    assert pdf_calendar.ai_status() == (True, "ON, using OIDC (workload identity federation)")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    on, message = pdf_calendar.ai_status()
+    assert on and "API_KEY" in message and "sk-ant" not in message
