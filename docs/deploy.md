@@ -157,7 +157,11 @@ are read by Claude Haiku (about $0.001 per calendar), and only if a key is set:
    and Render's logs show `Anthropic login failed`. Fix: create a new key, paste it into
    Render, redeploy. To stop doing that every month, use OIDC instead (next part).
 
-**Logging in without a key (OIDC, recommended once the reader works).** Instead of a stored
+**Logging in without a key (OIDC). Needs a paid Render workspace.** Render's "Managed Auth
+with OpenID Connect" is only on Pro workspaces or higher. On the free/Hobby plan Render never
+adds `ANTHROPIC_IDENTITY_TOKEN_FILE`, and the startup log says
+`PDF AI reader: OFF, missing ANTHROPIC_IDENTITY_TOKEN_FILE`. Until the workspace is upgraded,
+stay on the API key and replace it before it expires (step 4 above). If you upgrade later: Instead of a stored
 key, Render proves "I am the BridgeDay server" with a short-lived signed token, and Anthropic
 swaps it for a short-lived API token. Nothing long-lived exists to leak, expire or rotate.
 Render offers this on the Anthropic key's page ("Use OIDC").
